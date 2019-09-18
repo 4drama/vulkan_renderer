@@ -34,7 +34,23 @@ private:
 
 	std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages;
 
+	std::vector<vk::DescriptorSetLayout> desc_set_layout;
+	std::vector<vk::PushConstantRange> const_range;
+
+	vk::PipelineLayout pipeline_layout;
+
+	vk::DescriptorPool desc_pool;
+//	std::vector<vk::DescriptorSet> desc_set;
+
 	vk::PipelineCache pipeline_cache;
+
+	void init_descriptor_set_layouts(const vk::Device &device,
+		const std::vector<vk::DescriptorSetLayoutBinding> &layout_bindings);
+	void init_const_range();
+
+	void init_pipeline_layouts(const vk::Device &device);
+	void init_descriptor_pool(const vk::Device &device,
+		const std::vector<vk::DescriptorSetLayoutBinding> &layout_bindings);
 };
 
 #endif

@@ -68,6 +68,8 @@ private:
 	void init_framebuffers();
 //	void init_graphic_pipeline();
 
+	void draw();
+
 	[[nodiscard]] vk::Extent2D get_window_size() const noexcept;
 };
 

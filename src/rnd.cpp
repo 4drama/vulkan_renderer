@@ -640,6 +640,7 @@ void renderer::main_loop(){
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 
+			this->draw();
 			UpdateWindow(this->hWnd);
 
 			if(msg.message == WM_QUIT){
@@ -647,6 +648,10 @@ void renderer::main_loop(){
 			}
 		}
 	}
+}
+
+void renderer::draw(){
+
 }
 
 vk::Extent2D renderer::get_window_size() const noexcept{
