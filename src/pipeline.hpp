@@ -7,6 +7,8 @@
 
 #include "utils.hpp"
 
+struct layout_f;
+
 class pipeline_t{
 public:
 
@@ -40,17 +42,30 @@ private:
 	vk::PipelineLayout pipeline_layout;
 
 	vk::DescriptorPool desc_pool;
-//	std::vector<vk::DescriptorSet> desc_set;
+	std::vector<vk::DescriptorSet> desc_sets;
 
 	vk::PipelineCache pipeline_cache;
 
-	void init_descriptor_set_layouts(const vk::Device &device,
-		const std::vector<vk::DescriptorSetLayoutBinding> &layout_bindings);
+	void add_descriptor_set_layout(const vk::Device &device,
+		const std::vector<layout_f> &layouts);
 	void init_const_range();
 
 	void init_pipeline_layouts(const vk::Device &device);
 	void init_descriptor_pool(const vk::Device &device,
-		const std::vector<vk::DescriptorSetLayoutBinding> &layout_bindings);
+		const std::vector<layout_f> &layouts);
+
+	void init_descriptor_sets(const vk::Device &device
+	/*	, const std::vector<layout_f> &layout_bindings*/);
+
+	void update_descriptor_sets(const vk::Device &device,
+		const std::vector<layout_f> &layouts);
+};
+
+struct layout_f{
+	vk::DescriptorSetLayoutBinding descriptor_set_binding;
+	const vk::DescriptorImageInfo* pImageInfo_ = nullptr;
+	const vk::DescriptorBufferInfo* pBufferInfo_ = nullptr;
+	const vk::BufferView* pTexelBufferView_ = nullptr;
 };
 
 #endif

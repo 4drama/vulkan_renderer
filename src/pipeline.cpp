@@ -3,6 +3,8 @@
 #include <map>
 #include <list>
 
+#include <iostream>
+
 void pipeline_t::init_depth_buffer(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device, vk::Extent2D window_size){
 	this->depth.format = vk::Format::eD16Unorm;
@@ -65,8 +67,8 @@ vk::PipelineCache create_pipeline_cache_f(const vk::Device &device){
 }
 
 void pipeline_t::init_graphic_pipeline(const vk::Device &device){
-	const std::vector<vk::DescriptorSetLayoutBinding> layout_bindings{};
-	this->init_descriptor_set_layouts(device, layout_bindings);
+	const std::vector<layout_f> layouts{};
+	this->add_descriptor_set_layout(device, layouts);
 	/*	VkDescriptorSetLayoutBinding layout_binding = {};
 		layout_binding.binding = 0;
 		layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -76,7 +78,9 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device){
 	this->init_const_range();
 
 	this->init_pipeline_layouts(device);
-	this->init_descriptor_pool(device, layout_bindings);
+	this->init_descriptor_pool(device, layouts);
+	this->init_descriptor_sets(device/*, layouts*/);
+	this->update_descriptor_sets(device, layouts);
 
 	this->shader_stages[0] = load_shader_f(device,
 		"./shaders/vert_shader.spv", vk::ShaderStageFlagBits::eVertex);
@@ -107,16 +111,23 @@ std::vector<vk::Framebuffer> pipeline_t::create_framebuffers(const vk::Device &d
 	return framebuffers;
 }
 
-void pipeline_t::init_descriptor_set_layouts(const vk::Device &device,
-	const std::vector<vk::DescriptorSetLayoutBinding> &layout_bindings){
+void pipeline_t::add_descriptor_set_layout(const vk::Device &device,
+	const std::vector<layout_f> &layouts){
 
-	const vk::DescriptorSetLayoutCreateInfo desc_set_layout_info
-		= vk::DescriptorSetLayoutCreateInfo()
-		.setBindingCount(layout_bindings.size())
-		.setPBindings(layout_bindings.data());
+	if(layouts.size() != 0){
+		std::vector<vk::DescriptorSetLayoutBinding> layout_bindings;
+		for(auto &layout : layouts){
+			layout_bindings.emplace_back(layout.descriptor_set_binding);
+		}
 
-	this->desc_set_layout.emplace_back(
-		device.createDescriptorSetLayout(desc_set_layout_info));
+		const vk::DescriptorSetLayoutCreateInfo desc_set_layout_info
+			= vk::DescriptorSetLayoutCreateInfo()
+			.setBindingCount(layout_bindings.size())
+			.setPBindings(layout_bindings.data());
+
+		this->desc_set_layout.emplace_back(
+			device.createDescriptorSetLayout(desc_set_layout_info));
+	}
 }
 
 void pipeline_t::init_const_range(){
@@ -146,11 +157,12 @@ uint32_t get_descriptor_sets_count_f(
 }
 
 std::vector<vk::DescriptorPoolSize> get_pool_size_f(
-	const std::vector<vk::DescriptorSetLayoutBinding> &layout_bindings){
+	const std::vector<layout_f> &layouts){
 
 	std::map<vk::DescriptorType, uint32_t> tmp_pool_size{};
 	std::list<vk::DescriptorType> keys{};
-	for(auto &binding : layout_bindings){
+	for(auto &layout : layouts){
+		const vk::DescriptorSetLayoutBinding &binding = layout.descriptor_set_binding;
 		tmp_pool_size[binding.descriptorType] += binding.descriptorCount;
 		keys.push_front(binding.descriptorType);
 	}
@@ -166,15 +178,44 @@ std::vector<vk::DescriptorPoolSize> get_pool_size_f(
 }
 
 void pipeline_t::init_descriptor_pool(const vk::Device &device,
-	const std::vector<vk::DescriptorSetLayoutBinding> &layout_bindings){
+	const std::vector<layout_f> &layouts){
 
-	std::vector<vk::DescriptorPoolSize> type_count = get_pool_size_f(layout_bindings);
+	std::vector<vk::DescriptorPoolSize> type_count
+		= get_pool_size_f(layouts);
 
 	const vk::DescriptorPoolCreateInfo descriptor_pool_info =
-		vk::DescriptorPoolCreateInfo()
-		.setMaxSets(get_descriptor_sets_count_f(layout_bindings))
+		vk::DescriptorPoolCreateInfo()	// or desc_sey lay. size? get_descriptor_sets_count_f(layout_bindings)
+		.setMaxSets(this->desc_set_layout.size())
 		.setPoolSizeCount(type_count.size())
 		.setPPoolSizes(type_count.data());
 
 	this->desc_pool = device.createDescriptorPool(descriptor_pool_info);
+}
+
+void pipeline_t::init_descriptor_sets(const vk::Device &device
+/*	, const std::vector<layout_f> &layout*/){
+	const vk::DescriptorSetAllocateInfo desc_sets_info =
+		vk::DescriptorSetAllocateInfo()
+		.setDescriptorPool(this->desc_pool)	 // or desc_sey lay. size? get_descriptor_sets_count_f(layout_bindings)
+		.setDescriptorSetCount(this->desc_set_layout.size())
+		.setPSetLayouts(this->desc_set_layout.data());
+	this->desc_sets = device.allocateDescriptorSets(desc_sets_info);
+}
+
+
+void pipeline_t::update_descriptor_sets(const vk::Device &device,
+	const std::vector<layout_f> &layouts){
+	const uint32_t size = this->desc_sets.size();
+	std::vector<vk::WriteDescriptorSet> writes(size);
+	for(uint32_t i = 0 ; i < size; ++i){
+		writes[i] = vk::WriteDescriptorSet()
+			.setDstSet(this->desc_sets[i])
+			.setDstBinding(layouts[i].descriptor_set_binding.binding)
+			.setDescriptorCount(layouts[i].descriptor_set_binding.descriptorCount)
+			.setDescriptorType(layouts[i].descriptor_set_binding.descriptorType)
+			.setPImageInfo(layouts[i].pImageInfo_)
+			.setPBufferInfo(layouts[i].pBufferInfo_)
+			.setPTexelBufferView(layouts[i].pTexelBufferView_);
+	}
+	device.updateDescriptorSets(writes, std::vector<vk::CopyDescriptorSet>{});
 }
