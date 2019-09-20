@@ -91,12 +91,71 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device){
 	this->pipeline_cache = create_pipeline_cache_f(device);
 }
 
+void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &format){
+	const std::array<vk::AttachmentDescription, 2> attachments {
+		vk::AttachmentDescription()
+			.setFormat(format)
+			.setSamples(pipeline_t::num_samples)
+			.setLoadOp(vk::AttachmentLoadOp::eClear)
+			.setStoreOp(vk::AttachmentStoreOp::eStore)
+			.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+			.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+			.setInitialLayout(vk::ImageLayout::eUndefined)
+			.setFinalLayout(vk::ImageLayout::ePresentSrcKHR),
+
+		vk::AttachmentDescription()
+			.setFormat(this->depth.format)
+			.setSamples(pipeline_t::num_samples)
+			.setLoadOp(vk::AttachmentLoadOp::eClear)
+			.setStoreOp(vk::AttachmentStoreOp::eDontCare)
+			.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+			.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+			.setInitialLayout(vk::ImageLayout::eUndefined)
+			.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+	};
+
+	vk::AttachmentReference color_reference = vk::AttachmentReference()
+		.setAttachment(0)
+		.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+	vk::AttachmentReference depth_reference = vk::AttachmentReference()
+		.setAttachment(1)
+		.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+	vk::SubpassDescription subpass = vk::SubpassDescription()
+		.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+		.setInputAttachmentCount(0)
+		.setPInputAttachments(nullptr)
+		.setColorAttachmentCount(1)
+		.setPColorAttachments(&color_reference)
+		.setPResolveAttachments(nullptr)
+		.setPDepthStencilAttachment(&depth_reference)
+		.setPreserveAttachmentCount(0)
+		.setPPreserveAttachments(nullptr);
+
+	const vk::RenderPassCreateInfo render_pass_info
+		= vk::RenderPassCreateInfo()
+		.setAttachmentCount(attachments.size())
+		.setPAttachments(attachments.data())
+		.setSubpassCount(1)
+		.setPSubpasses(&subpass)
+		.setDependencyCount(0)
+		.setPDependencies(nullptr);
+	this->render_pass = device.createRenderPass(render_pass_info);
+}
+
 std::vector<vk::Framebuffer> pipeline_t::create_framebuffers(const vk::Device &device,
-	const std::vector<swapchain_buffers_type> &buffers, vk::Extent2D window_size) const{
+	const vk::PhysicalDevice &physical_device,
+	const std::vector<swapchain_buffers_type> &buffers, vk::Extent2D window_size,
+	const vk::Format &format){
+
+	this->init_depth_buffer(device, physical_device, window_size);
+	this->init_render_pass(device, format);
+
 	std::array<vk::ImageView, 2> attachments{vk::ImageView{}, this->depth.view};
 
 	vk::FramebufferCreateInfo framebuffer_info = vk::FramebufferCreateInfo()
-	//	.setRenderPass()
+		.setRenderPass(this->render_pass)
 		.setAttachmentCount(attachments.size())
 		.setPAttachments(attachments.data())
 		.setWidth(window_size.width)

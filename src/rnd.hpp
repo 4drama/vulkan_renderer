@@ -35,7 +35,7 @@ private:
 
 	vk::Device device;
 
-//	vk::Format format;
+	vk::Format format;		// нужен для в randerpass
 	vk::SwapchainKHR swapchain;
 //	uint32_t swapchainImageCount;
 	std::vector<swapchain_buffers_type> buffers;

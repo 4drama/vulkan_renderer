@@ -20,8 +20,10 @@ public:
 	// not comlited. need randerpass
 	std::vector<vk::Framebuffer> create_framebuffers(
 		const vk::Device &device,
+		const vk::PhysicalDevice &physical_device,
 		const std::vector<swapchain_buffers_type> &buffers,
-		vk::Extent2D window_size) const;
+		vk::Extent2D window_size,
+		const vk::Format &format);
 private:
 	static constexpr vk::SampleCountFlagBits num_samples
 		= vk::SampleCountFlagBits::e1;
@@ -46,6 +48,8 @@ private:
 
 	vk::PipelineCache pipeline_cache;
 
+	vk::RenderPass render_pass;
+
 	void add_descriptor_set_layout(const vk::Device &device,
 		const std::vector<layout_f> &layouts);
 	void init_const_range();
@@ -54,11 +58,12 @@ private:
 	void init_descriptor_pool(const vk::Device &device,
 		const std::vector<layout_f> &layouts);
 
-	void init_descriptor_sets(const vk::Device &device
-	/*	, const std::vector<layout_f> &layout_bindings*/);
+	void init_descriptor_sets(const vk::Device &device);
 
 	void update_descriptor_sets(const vk::Device &device,
 		const std::vector<layout_f> &layouts);
+
+	void init_render_pass(const vk::Device &device, const vk::Format &format);
 };
 
 struct layout_f{

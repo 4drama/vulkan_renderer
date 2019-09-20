@@ -556,6 +556,7 @@ void renderer::init_swapchain(){
 
 //		.setOldSwapchain();
 
+	this->format = formatKHR.format;
 	this->swapchain = this->device.createSwapchainKHR(swapchain_info);
 	this->buffers = get_swapchain_buffers(this->device, this->swapchain, formatKHR.format);
 }
@@ -585,8 +586,13 @@ void renderer::init_command_buffers(){
 }
 
 void renderer::init_framebuffers(){
+	const vk::SurfaceCapabilitiesKHR surface_capabilities =
+		this->physical_device.getSurfaceCapabilitiesKHR(this->surface);
+
 	this->framebuffers = this->pipeline.create_framebuffers(this->device,
-		this->buffers, this->get_window_size());
+		this->physical_device, this->buffers,
+		get_swapchain_extent_f(surface_capabilities, this->get_window_size()),
+		this->format);
 }
 
 renderer::renderer(){
@@ -606,9 +612,6 @@ renderer::renderer(){
 	this->init_queues();
 	this->init_command_pools();
 	this->init_command_buffers();
-
-	this->pipeline.init_depth_buffer(this->device,
-		this->physical_device, this->get_window_size());
 
 	this->init_framebuffers();
 
