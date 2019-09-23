@@ -7,6 +7,12 @@
 
 #include <fstream>
 
+struct buffer_t{
+	vk::Buffer buf;
+	vk::DeviceMemory mem;
+	vk::DescriptorBufferInfo info;
+};
+
 struct swapchain_buffers_type {
 	vk::Image image;
 	vk::ImageView view;

@@ -29,6 +29,11 @@ namespace {
 	};
 }
 
+void renderer::set_scene(scene_t *scene){
+//	this->scene_ptr = scene;
+	this->pipeline.load_scene(this->device, this->physical_device, *scene);
+}
+
 void renderer::init_window(){
 	uint32_t width = 800;
 	uint32_t height = 600;

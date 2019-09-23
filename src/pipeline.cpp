@@ -5,6 +5,104 @@
 
 #include <iostream>
 
+void destroy_vertex_buffer(const vk::Device &device){
+	// TO DO
+}
+
+namespace{
+
+vk::Buffer create_vertex_buffer_f(const vk::Device &device, vk::DeviceSize size){
+	const vk::BufferCreateInfo buffer_info = vk::BufferCreateInfo()
+		.setSize(size)
+		.setUsage(vk::BufferUsageFlagBits::eVertexBuffer)
+/*		.setSharingMode()
+		.setQueueFamilyIndexCount()
+		.setPQueueFamilyIndices()*/;
+	return device.createBuffer(buffer_info);
+}
+
+vk::DeviceMemory allocate_vertex_buffer_f(const vk::Device &device,
+	const vk::PhysicalDevice &physical_device, const vk::MemoryRequirements &mem_req){
+	vk::PhysicalDeviceMemoryProperties mem_prop
+		= physical_device.getMemoryProperties();
+
+	const vk::MemoryAllocateInfo memory_info = vk::MemoryAllocateInfo()
+		.setAllocationSize(mem_req.size)
+		.setMemoryTypeIndex(memory_type_from_properties(mem_prop, mem_req,
+			vk::MemoryPropertyFlagBits::eHostVisible |
+			vk::MemoryPropertyFlagBits::eHostCoherent));
+	return device.allocateMemory(memory_info);
+}
+
+vk::DescriptorBufferInfo create_vertex_buffer_info_f(
+	const vk::Buffer &buf, const vk::MemoryRequirements &mem_req){
+	return vk::DescriptorBufferInfo()
+		.setBuffer(buf)
+		.setOffset(0)
+		.setRange(mem_req.size);
+}
+
+buffer_t create_vertex_buffer_f(const vk::Device &device,
+	const vk::PhysicalDevice &physical_device, vk::DeviceSize size){
+	buffer_t vertex_buffer{};
+	vertex_buffer.buf = create_vertex_buffer_f(device, size);
+	vk::MemoryRequirements mem_req
+		= device.getBufferMemoryRequirements(vertex_buffer.buf);
+	vertex_buffer.mem = allocate_vertex_buffer_f(device, physical_device, mem_req);
+
+	vertex_buffer.info
+		= create_vertex_buffer_info_f(vertex_buffer.buf, mem_req);
+	return vertex_buffer;
+}
+
+void store_vertex_data_f(const vk::Device &device, const buffer_t &buffer,
+	const scene_t &scene){		// ?????????????????????
+	void *data_ptr = device.mapMemory(buffer.mem, buffer.info.offset,
+		buffer.info.range, vk::MemoryMapFlags());
+
+	memcpy(data_ptr, scene.objects.data(), scene.get_objects_size());
+
+/*	for(uint32_t i = 0; i < scene.objects.size() * 3 * 3; i += 3){
+		std::cerr << ((float*)data_ptr)[i] << ' '
+			<< ((float*)data_ptr)[i + 1] << ' '
+			<< ((float*)data_ptr)[i + 2] << std::endl;
+	}*/
+
+	device.unmapMemory(buffer.mem);
+}
+
+void bind_vertex_buffer_f(const vk::Device &device, const buffer_t &buffer){
+	device.bindBufferMemory(buffer.buf, buffer.mem, buffer.info.offset);
+}
+
+}
+
+void pipeline_t::describing_vertex_data(){
+	this->vi_binding = vk::VertexInputBindingDescription()
+		.setBinding(0)
+		.setStride(sizeof(vertex))
+		.setInputRate(vk::VertexInputRate::eVertex);
+
+	this->vi_attribs[0] = vk::VertexInputAttributeDescription()
+		.setLocation(0)
+		.setBinding(0)
+		.setFormat(vk::Format::eR32G32B32A32Sfloat)
+		.setOffset(0);
+}
+
+void pipeline_t::load_scene(const vk::Device &device,
+	const vk::PhysicalDevice &physical_device, const scene_t &scene){
+	destroy_vertex_buffer(device);
+
+	this->vertex_buffer
+		= create_vertex_buffer_f(device, physical_device, scene.get_objects_size());
+
+	store_vertex_data_f(device, this->vertex_buffer, scene);
+	bind_vertex_buffer_f(device, this->vertex_buffer);
+
+	this->describing_vertex_data();	// нужно ли описывать вершины тут?
+}
+
 void pipeline_t::init_depth_buffer(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device, vk::Extent2D window_size){
 	this->depth.format = vk::Format::eD16Unorm;

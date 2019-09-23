@@ -15,6 +15,7 @@ public:
 	renderer();
 	~renderer() = default;
 
+	void set_scene(scene_t *scene_ptr);
 	void main_loop();
 private:
 	HINSTANCE hInstance;
@@ -52,6 +53,8 @@ private:
 	pipeline_t pipeline;
 
 	vk::CommandBuffer cmd_buffer;
+
+//	scene_t *scene_ptr = nullptr;
 
 	void init_window();
 	void init_instance();
