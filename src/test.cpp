@@ -7,9 +7,15 @@
 int main() try {
 	scene_t scene_one{};
 	scene_one.add_object(
-		mesh({
-			{{0,0,0},{1,0,0},{0,1,0}}
-		})
+		mesh{
+			std::vector<polygon>{
+				{
+					vertex{0, 0, 0, 1},
+					vertex{1, 0, 0, 1},
+					vertex{0, 1, 0, 1}
+				}
+			}
+		}
 	);
 //	std::cerr << scene_one.get_size() << std::endl;
 

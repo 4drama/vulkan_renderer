@@ -18,6 +18,14 @@ struct swapchain_buffers_type {
 	vk::ImageView view;
 };
 
+struct vertex{
+	float pos_x, pos_y, pos_z, pos_w;
+};
+
+struct polygon{
+	std::array<vertex, 3> data;
+};
+
 template<typename T>
 std::vector<T> load_file(std::string path);
 

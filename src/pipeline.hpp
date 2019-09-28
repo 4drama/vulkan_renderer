@@ -7,35 +7,20 @@
 
 #include "utils.hpp"
 
+#include <iostream>
+
 struct layout_f;
-
-struct vertex{
-	float pos_x, pos_y, pos_z;
-};
-
-struct polygon{
-	std::array<vertex, 3> data;
-};
 
 struct mesh{
 	std::vector<polygon> polygons;
 };
 
+
 struct scene_t{
 	std::vector<mesh> objects;
 
-
-	void add_object(const mesh &obj){
-		objects.emplace_back(obj);
-	};
-
-	vk::DeviceSize get_objects_size() const{
-		vk::DeviceSize size = 0;
-		for(auto &obj : objects){
-			size += obj.polygons.size() * sizeof(polygon);
-		}
-		return size;
-	};
+	void add_object(const mesh &obj);
+	vk::DeviceSize get_objects_size() const;
 };
 
 class pipeline_t{

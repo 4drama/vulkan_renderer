@@ -659,7 +659,47 @@ void renderer::main_loop(){
 }
 
 void renderer::draw(){
+	vk::Semaphore semaphore = this->device.createSemaphore(vk::SemaphoreCreateInfo());
 
+	vk::ResultValue<uint32_t> frame_result = this->device.acquireNextImageKHR(
+		this->swapchain, UINT64_MAX, semaphore, vk::Fence());
+	if(frame_result.result == vk::Result::eSuccess)
+		this->current_frame = frame_result.value;
+	else
+		throw std::runtime_error("Could not free frames.");
+
+	cmd_buffer.begin(vk::CommandBufferBeginInfo());
+	//cmd_begin_render_pass ... vkCmdEndRenderPass
+	cmd_buffer.end();
+
+	vk::Fence fance = this->device.createFence(vk::FenceCreateInfo());
+	vk::PipelineStageFlags pipe_stage_flags
+		= vk::PipelineStageFlagBits::eBottomOfPipe;
+	const std::array<vk::SubmitInfo, 1> submit_info{
+		vk::SubmitInfo()
+			.setWaitSemaphoreCount(1)
+			.setPWaitSemaphores(&semaphore)
+			.setPWaitDstStageMask(&pipe_stage_flags)
+			.setCommandBufferCount(1)
+			.setPCommandBuffers(&cmd_buffer)
+			.setSignalSemaphoreCount(0)
+			.setPSignalSemaphores(nullptr)
+	};
+	this->graphics_queue.submit(submit_info, fance);
+
+	this->device.waitForFences(fance, true, 100000);
+
+	this->present_queue.presentKHR(vk::PresentInfoKHR()
+//		.setWaitSemaphoreCount()
+//		.setPWaitSemaphores()
+		.setSwapchainCount(1)
+		.setPSwapchains(&this->swapchain)
+		.setPImageIndices(&this->current_frame)
+//		.setPResults()
+	);
+
+	this->device.destroy(fance);
+	this->device.destroy(semaphore);
 }
 
 vk::Extent2D renderer::get_window_size() const noexcept{

@@ -3,7 +3,20 @@
 #include <map>
 #include <list>
 
+#include <cstddef>
 #include <iostream>
+
+void scene_t::add_object(const mesh &obj){
+	objects.emplace_back(obj);
+};
+
+vk::DeviceSize scene_t::get_objects_size() const{
+	vk::DeviceSize size = 0;
+	for(auto &obj : objects){
+		size += obj.polygons.size() * sizeof(polygon);
+	}
+	return size;
+};
 
 void destroy_vertex_buffer(const vk::Device &device){
 	// TO DO
@@ -56,13 +69,21 @@ buffer_t create_vertex_buffer_f(const vk::Device &device,
 }
 
 void store_vertex_data_f(const vk::Device &device, const buffer_t &buffer,
-	const scene_t &scene){		// ?????????????????????
+	const scene_t &scene){
 	void *data_ptr = device.mapMemory(buffer.mem, buffer.info.offset,
 		buffer.info.range, vk::MemoryMapFlags());
 
-	memcpy(data_ptr, scene.objects.data(), scene.get_objects_size());
+	std::ptrdiff_t offset = 0;
+	const std::size_t polygon_size = sizeof(vertex) * 3;
+	for(auto &obj : scene.objects){
+		for(auto &poly : obj.polygons){
+			memcpy(data_ptr + offset, poly.data.data(), polygon_size);
+			offset += polygon_size;
+		}
+	}
+//	memcpy(data_ptr, scene.objects[0].polygons[0].data.data(), scene.get_objects_size());
 
-/*	for(uint32_t i = 0; i < scene.objects.size() * 3 * 3; i += 3){
+/*	for(uint32_t i = 0; i < scene.get_objects_size() / 4; i += 4){
 		std::cerr << ((float*)data_ptr)[i] << ' '
 			<< ((float*)data_ptr)[i + 1] << ' '
 			<< ((float*)data_ptr)[i + 2] << std::endl;
@@ -89,7 +110,27 @@ void pipeline_t::describing_vertex_data(){
 		.setFormat(vk::Format::eR32G32B32A32Sfloat)
 		.setOffset(0);
 }
+/*
+bind_vertex_to_renderpass(){
+	const vk::CommandBufferBeginInfo begin_info();
+	cmd_buffer.begin(begin_info);
 
+	std::array<vk::ClearValue, 2> clear_values{};
+	const vk::RenderPassBeginInfo render_pass_begin_info = vk::RenderPassBeginInfo()
+		.setRenderPass(render_pass)
+		.setFramebuffer(framebuffers[current_frame])
+		.setRenderArea(vk::Rect2D{vk::Offset2D(0, 0), vk::Extent2D(x, y)})
+		.setClearValueCount(clear_values.size())
+		.setPClearValues(clear_values.data());
+	cmd_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
+
+	cmd_buffer.bindVertexBuffers(0, std::vector<vk::Buffer>{->vertex_buffer.buf},
+		std::vector<vk::DeviceSize>{0});
+
+	cmd_buffer.endRenderPass();
+	cmd_buffer.end();
+}
+*/
 void pipeline_t::load_scene(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device, const scene_t &scene){
 	destroy_vertex_buffer(device);
@@ -100,7 +141,8 @@ void pipeline_t::load_scene(const vk::Device &device,
 	store_vertex_data_f(device, this->vertex_buffer, scene);
 	bind_vertex_buffer_f(device, this->vertex_buffer);
 
-	this->describing_vertex_data();	// нужно ли описывать вершины тут?
+//	this->describing_vertex_data();	// нужно ли описывать вершины тут?
+
 }
 
 void pipeline_t::init_depth_buffer(const vk::Device &device,
@@ -187,6 +229,9 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device){
 		"./shaders/frag_shader.spv", vk::ShaderStageFlagBits::eFragment);
 
 	this->pipeline_cache = create_pipeline_cache_f(device);
+
+	this->describing_vertex_data();
+
 }
 
 void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &format){
