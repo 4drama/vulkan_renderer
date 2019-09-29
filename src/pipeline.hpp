@@ -25,6 +25,9 @@ struct scene_t{
 
 class pipeline_t{
 public:
+	void cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
+		const vk::Framebuffer &frame, vk::Rect2D area) const;
+
 	void load_scene(const vk::Device &device,
 		const vk::PhysicalDevice &physical_device, const scene_t &scene);
 
@@ -63,6 +66,7 @@ private:
 	std::vector<vk::DescriptorSet> desc_sets;
 
 	vk::PipelineCache pipeline_cache;
+	vk::Pipeline pipeline;
 
 	vk::RenderPass render_pass;
 
@@ -86,6 +90,9 @@ private:
 	void init_render_pass(const vk::Device &device, const vk::Format &format);
 
 	void describing_vertex_data();
+
+	void init_pipeline(const vk::Device &device);
+
 //	void destroy_vertex_buffer(const vk::Device &device);
 };
 

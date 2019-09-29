@@ -577,6 +577,7 @@ void renderer::init_queues(){
 
 void renderer::init_command_pools(){
 	const vk::CommandPoolCreateInfo command_pool_info = vk::CommandPoolCreateInfo()
+		.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
 		.setQueueFamilyIndex(this->graphics_queue_family_index);
 	this->graphics_cmd_pool = this->device.createCommandPool(command_pool_info);
 }
@@ -669,7 +670,8 @@ void renderer::draw(){
 		throw std::runtime_error("Could not free frames.");
 
 	cmd_buffer.begin(vk::CommandBufferBeginInfo());
-	//cmd_begin_render_pass ... vkCmdEndRenderPass
+	pipeline.cmd_fill_render_pass(cmd_buffer, this->framebuffers[current_frame],
+		vk::Rect2D(vk::Offset2D(0, 0), vk::Extent2D(500, 500)));
 	cmd_buffer.end();
 
 	vk::Fence fance = this->device.createFence(vk::FenceCreateInfo());

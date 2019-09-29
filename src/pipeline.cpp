@@ -110,27 +110,147 @@ void pipeline_t::describing_vertex_data(){
 		.setFormat(vk::Format::eR32G32B32A32Sfloat)
 		.setOffset(0);
 }
-/*
-bind_vertex_to_renderpass(){
-	const vk::CommandBufferBeginInfo begin_info();
-	cmd_buffer.begin(begin_info);
 
-	std::array<vk::ClearValue, 2> clear_values{};
-	const vk::RenderPassBeginInfo render_pass_begin_info = vk::RenderPassBeginInfo()
-		.setRenderPass(render_pass)
-		.setFramebuffer(framebuffers[current_frame])
-		.setRenderArea(vk::Rect2D{vk::Offset2D(0, 0), vk::Extent2D(x, y)})
-		.setClearValueCount(clear_values.size())
-		.setPClearValues(clear_values.data());
-	cmd_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
+void pipeline_t::init_pipeline(const vk::Device &device){
+	std::array<vk::DynamicState, VK_DYNAMIC_STATE_RANGE_SIZE> dynamic_state_enables;
+	vk::PipelineDynamicStateCreateInfo dynamic_state = vk::PipelineDynamicStateCreateInfo()
+		.setFlags(vk::PipelineDynamicStateCreateFlags())
+		.setDynamicStateCount(0)
+		.setPDynamicStates(dynamic_state_enables.data());
 
-	cmd_buffer.bindVertexBuffers(0, std::vector<vk::Buffer>{->vertex_buffer.buf},
+	dynamic_state_enables[dynamic_state.dynamicStateCount++]
+		= vk::DynamicState::eViewport;
+	dynamic_state_enables[dynamic_state.dynamicStateCount++]
+		= vk::DynamicState::eScissor;
+
+	using cc = vk::ColorComponentFlagBits;
+	std::array<vk::PipelineColorBlendAttachmentState, 1> att_state{
+		vk::PipelineColorBlendAttachmentState()
+			.setBlendEnable(false)
+			.setSrcColorBlendFactor(vk::BlendFactor::eZero)
+			.setDstColorBlendFactor(vk::BlendFactor::eZero)
+			.setColorBlendOp(vk::BlendOp::eAdd)
+			.setSrcAlphaBlendFactor(vk::BlendFactor::eZero)
+			.setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+			.setAlphaBlendOp(vk::BlendOp::eAdd)
+			.setColorWriteMask(cc::eR | cc::eG | cc::eB | cc::eA)
+	};
+
+	this->pipeline = device.createGraphicsPipeline(
+		this->pipeline_cache,
+		vk::GraphicsPipelineCreateInfo()
+			.setFlags(vk::PipelineCreateFlags())
+			.setStageCount(this->shader_stages.size())
+			.setPStages(this->shader_stages.data())
+			.setPVertexInputState(&vk::PipelineVertexInputStateCreateInfo()
+				.setFlags(vk::PipelineVertexInputStateCreateFlags())
+				.setVertexBindingDescriptionCount(1)
+				.setPVertexBindingDescriptions(&this->vi_binding)
+				.setVertexAttributeDescriptionCount(this->vi_attribs.size())
+				.setPVertexAttributeDescriptions(this->vi_attribs.data()))
+			.setPInputAssemblyState(&vk::PipelineInputAssemblyStateCreateInfo()
+				.setFlags(vk::PipelineInputAssemblyStateCreateFlags())
+				.setTopology(vk::PrimitiveTopology::eTriangleList)
+				.setPrimitiveRestartEnable(false))
+			.setPTessellationState(nullptr)
+			.setPViewportState(&vk::PipelineViewportStateCreateInfo()
+				.setFlags(vk::PipelineViewportStateCreateFlags())
+				.setViewportCount(1)
+				.setPViewports(nullptr)
+				.setScissorCount(1)
+				.setPScissors(nullptr))
+			.setPRasterizationState(&vk::PipelineRasterizationStateCreateInfo()
+				.setFlags(vk::PipelineRasterizationStateCreateFlags())
+				.setDepthClampEnable(true)
+				.setRasterizerDiscardEnable(false)
+				.setPolygonMode(vk::PolygonMode::eFill)
+				.setCullMode(vk::CullModeFlagBits::eBack)
+				.setFrontFace(vk::FrontFace::eClockwise)
+				.setDepthBiasEnable(false)
+				.setDepthBiasConstantFactor(0)
+				.setDepthBiasClamp(0)
+				.setDepthBiasSlopeFactor(0)
+				.setLineWidth(0))
+			.setPMultisampleState(&vk::PipelineMultisampleStateCreateInfo()
+				.setFlags(vk::PipelineMultisampleStateCreateFlags())
+				.setRasterizationSamples(vk::SampleCountFlagBits::e1)
+				.setSampleShadingEnable(false)
+				.setMinSampleShading(0.0)
+				.setPSampleMask(nullptr)
+				.setAlphaToCoverageEnable(false)
+				.setAlphaToOneEnable(false))
+			.setPDepthStencilState(&vk::PipelineDepthStencilStateCreateInfo()
+				.setFlags(vk::PipelineDepthStencilStateCreateFlags())
+				.setDepthTestEnable(true)
+				.setDepthWriteEnable(true)
+				.setDepthCompareOp(vk::CompareOp::eLessOrEqual)
+				.setDepthBoundsTestEnable(false)
+				.setStencilTestEnable(false)
+				.setFront(vk::StencilOpState()
+					.setFailOp(vk::StencilOp::eKeep)
+					.setPassOp(vk::StencilOp::eKeep)
+					.setDepthFailOp(vk::StencilOp::eKeep)
+					.setCompareOp(vk::CompareOp::eAlways)
+					.setCompareMask(0)
+					.setWriteMask(0)
+					.setReference(0))
+				.setBack(vk::StencilOpState()
+					.setFailOp(vk::StencilOp::eKeep)
+					.setPassOp(vk::StencilOp::eKeep)
+					.setDepthFailOp(vk::StencilOp::eKeep)
+					.setCompareOp(vk::CompareOp::eAlways)
+					.setCompareMask(0)
+					.setWriteMask(0)
+					.setReference(0))
+				.setMinDepthBounds(0)
+				.setMaxDepthBounds(0))
+			.setPColorBlendState(&vk::PipelineColorBlendStateCreateInfo()
+				.setFlags(vk::PipelineColorBlendStateCreateFlags())
+				.setLogicOpEnable(false)
+				.setLogicOp(vk::LogicOp::eNoOp)
+				.setAttachmentCount(att_state.size())
+				.setPAttachments(att_state.data())
+				.setBlendConstants(std::array<float,4>{1.0f, 1.0f, 1.0f, 1.0f}))
+			.setPDynamicState(&dynamic_state)
+			.setLayout(this->pipeline_layout)
+			.setRenderPass(this->render_pass)
+			.setSubpass(0)
+			.setBasePipelineHandle(vk::Pipeline())
+			.setBasePipelineIndex(0)
+	);
+}
+
+void pipeline_t::cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
+	const vk::Framebuffer &frame, vk::Rect2D area) const{
+	std::array<vk::ClearValue, 2> clear_values{
+		vk::ClearValue().setColor(
+			vk::ClearColorValue(std::array<float,4>{0.2f, 0.2f, 0.2f, 0.2f})),
+		vk::ClearValue().setDepthStencil(vk::ClearDepthStencilValue(1.0f, 0))
+	};
+	cmd_buffer.beginRenderPass(
+		vk::RenderPassBeginInfo()
+			.setRenderPass(this->render_pass)
+			.setFramebuffer(frame)
+			.setRenderArea(area)
+			.setClearValueCount(clear_values.size())
+			.setPClearValues(clear_values.data()),
+		vk::SubpassContents::eInline
+	);
+
+//	vkCmdBindPipeline
+//	vkCmdBindDescriptorSets
+
+	cmd_buffer.bindVertexBuffers(0, std::vector<vk::Buffer>{this->vertex_buffer.buf},
 		std::vector<vk::DeviceSize>{0});
 
+//	cmd_set_viewport_f(info);
+//	cmd_set_scissor_f(info);
+
+//	vkCmdDraw(info->cmd_buffer, 12 * 3, 1, 0, 0);
+
 	cmd_buffer.endRenderPass();
-	cmd_buffer.end();
 }
-*/
+
 void pipeline_t::load_scene(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device, const scene_t &scene){
 	destroy_vertex_buffer(device);
@@ -231,7 +351,7 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device){
 	this->pipeline_cache = create_pipeline_cache_f(device);
 
 	this->describing_vertex_data();
-
+	this->init_pipeline(device);
 }
 
 void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &format){
