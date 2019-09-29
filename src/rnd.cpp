@@ -609,7 +609,8 @@ renderer::renderer(){
 	this->init_instance();
 
 	this->device_extension_names = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-	this->features.setGeometryShader(true).setTessellationShader(true);
+	this->features.setGeometryShader(true).setTessellationShader(true)
+		.setDepthClamp(true);
 	this->init_surface();
 	this->init_physical_device();
 	this->init_device();

@@ -300,7 +300,7 @@ vk::PipelineShaderStageCreateInfo load_shader_f(
 
 	return vk::PipelineShaderStageCreateInfo()
 		.setStage(stage)
-		.setPName(path.c_str())
+		.setPName("main")
 		.setModule(device.createShaderModule(module_create_info))
 		.setPSpecializationInfo(specialization_info_ptr);
 }
