@@ -20,7 +20,7 @@ struct scene_t{
 	std::vector<mesh> objects;
 
 	void add_object(const mesh &obj);
-	vk::DeviceSize get_objects_size() const;
+	uint32_t get_vertex_count() const;
 };
 
 class pipeline_t{
@@ -71,6 +71,7 @@ private:
 	vk::RenderPass render_pass;
 
 	buffer_t vertex_buffer;
+	uint32_t vertex_count;
 	vk::VertexInputBindingDescription vi_binding;
 	std::array<vk::VertexInputAttributeDescription, 1> vi_attribs;
 

@@ -10,14 +10,13 @@ int main() try {
 		mesh{
 			std::vector<polygon>{
 				{
-					vertex{0, 0, 0, 1},
-					vertex{1, 0, 0, 1},
-					vertex{0, 1, 0, 1}
+					vertex{-1, -1, 0, 1},
+					vertex{1, -1, 0, 1},
+					vertex{-1, 1, 0, 1}
 				}
 			}
 		}
 	);
-//	std::cerr << scene_one.get_size() << std::endl;
 
 	renderer r2{};
 	r2.set_scene(&scene_one);

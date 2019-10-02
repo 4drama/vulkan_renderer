@@ -10,10 +10,10 @@ void scene_t::add_object(const mesh &obj){
 	objects.emplace_back(obj);
 };
 
-vk::DeviceSize scene_t::get_objects_size() const{
-	vk::DeviceSize size = 0;
+uint32_t scene_t::get_vertex_count() const{
+	uint32_t size = 0;
 	for(auto &obj : objects){
-		size += obj.polygons.size() * sizeof(polygon);
+		size += obj.polygons.size() * 3;
 	}
 	return size;
 };
@@ -81,14 +81,6 @@ void store_vertex_data_f(const vk::Device &device, const buffer_t &buffer,
 			offset += polygon_size;
 		}
 	}
-//	memcpy(data_ptr, scene.objects[0].polygons[0].data.data(), scene.get_objects_size());
-
-/*	for(uint32_t i = 0; i < scene.get_objects_size() / 4; i += 4){
-		std::cerr << ((float*)data_ptr)[i] << ' '
-			<< ((float*)data_ptr)[i + 1] << ' '
-			<< ((float*)data_ptr)[i + 2] << std::endl;
-	}*/
-
 	device.unmapMemory(buffer.mem);
 }
 
@@ -237,16 +229,29 @@ void pipeline_t::cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 		vk::SubpassContents::eInline
 	);
 
-//	vkCmdBindPipeline
-//	vkCmdBindDescriptorSets
+	cmd_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, this->pipeline);
+	cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout,
+		0, this->desc_sets, std::vector<uint32_t>());
 
 	cmd_buffer.bindVertexBuffers(0, std::vector<vk::Buffer>{this->vertex_buffer.buf},
 		std::vector<vk::DeviceSize>{0});
 
-//	cmd_set_viewport_f(info);
-//	cmd_set_scissor_f(info);
+	cmd_buffer.setViewport(0, std::vector<vk::Viewport>{
+		vk::Viewport()
+		//	.setX(0)
+		//	.setY(0)
+			.setWidth(area.extent.width)
+			.setHeight(area.extent.height)
+			.setMinDepth((float)0.0f)
+			.setMaxDepth((float)1.0f)
+	});
+	cmd_buffer.setScissor(0, std::vector<vk::Rect2D>{
+		vk::Rect2D()
+			.setOffset(vk::Offset2D(0, 0))
+			.setExtent(vk::Extent2D(area.extent.width, area.extent.height))
+	});
 
-//	vkCmdDraw(info->cmd_buffer, 12 * 3, 1, 0, 0);
+	cmd_buffer.draw(this->vertex_count, 1, 0, 0);
 
 	cmd_buffer.endRenderPass();
 }
@@ -255,14 +260,12 @@ void pipeline_t::load_scene(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device, const scene_t &scene){
 	destroy_vertex_buffer(device);
 
-	this->vertex_buffer
-		= create_vertex_buffer_f(device, physical_device, scene.get_objects_size());
+	this->vertex_count = scene.get_vertex_count();
+	this->vertex_buffer = create_vertex_buffer_f(device,
+		physical_device, this->vertex_count * sizeof(polygon));
 
 	store_vertex_data_f(device, this->vertex_buffer, scene);
 	bind_vertex_buffer_f(device, this->vertex_buffer);
-
-//	this->describing_vertex_data();	// нужно ли описывать вершины тут?
-
 }
 
 void pipeline_t::init_depth_buffer(const vk::Device &device,
