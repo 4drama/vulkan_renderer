@@ -16,7 +16,9 @@ public:
 	~renderer() = default;
 
 	void set_scene(scene_t *scene_ptr);
-	void main_loop();
+
+	void show_window();
+	void draw();
 private:
 	HINSTANCE hInstance;
 	HWND hWnd;
@@ -70,8 +72,6 @@ private:
 
 	void init_framebuffers();
 //	void init_graphic_pipeline();
-
-	void draw();
 
 	[[nodiscard]] vk::Extent2D get_window_size() const noexcept;
 };

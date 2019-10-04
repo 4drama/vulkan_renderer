@@ -638,6 +638,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam){
 	return 0;
 }
 
+void renderer::show_window(){
+	ShowWindow(this->hWnd, SW_SHOWNORMAL);
+	UpdateWindow(this->hWnd);
+}
+
+/*
 void renderer::main_loop(){
 	ShowWindow(this->hWnd, SW_SHOWNORMAL);
 	UpdateWindow(this->hWnd);
@@ -645,21 +651,21 @@ void renderer::main_loop(){
 	MSG msg;
 	memset(&msg, 0, sizeof(MSG));
 
-	while (1){
+	while (true){
 		if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)){
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 
-			this->draw();
-			UpdateWindow(this->hWnd);
+		//	UpdateWindow(this->hWnd);
 
 			if(msg.message == WM_QUIT){
 				break;
 			}
 		}
+		this->draw();
 	}
 }
-
+*/
 void renderer::draw(){
 	vk::Semaphore semaphore = this->device.createSemaphore(vk::SemaphoreCreateInfo());
 
@@ -690,7 +696,7 @@ void renderer::draw(){
 	};
 	this->graphics_queue.submit(submit_info, fance);
 
-	this->device.waitForFences(fance, true, 100000);
+	this->device.waitForFences(fance, true, 10000000);
 
 	this->present_queue.presentKHR(vk::PresentInfoKHR()
 //		.setWaitSemaphoreCount()
