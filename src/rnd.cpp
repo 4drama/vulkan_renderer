@@ -524,6 +524,7 @@ void renderer::init_swapchain(){
 
 	const vk::Extent2D swapchain_extent =
 		get_swapchain_extent_f(surface_capabilities, this->get_window_size());
+	this->screen_size = swapchain_extent;
 
 	const uint32_t number_of_swapchain_images =	get_number_of_swapchain_images_f(
 		surface_capabilities, surface_capabilities.minImageCount + 1);
@@ -615,18 +616,20 @@ renderer::renderer(){
 	this->init_physical_device();
 	this->init_device();
 
-	this->init_swapchain();
 	this->init_queues();
 	this->init_command_pools();
 	this->init_command_buffers();
 
+	this->init_swapchain();
 	this->init_framebuffers();
-
 	this->pipeline.init_graphic_pipeline(this->device);
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam){
 	switch(message){
+/*	case WM_SIZE:
+
+		break;*/
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
@@ -643,29 +646,6 @@ void renderer::show_window(){
 	UpdateWindow(this->hWnd);
 }
 
-/*
-void renderer::main_loop(){
-	ShowWindow(this->hWnd, SW_SHOWNORMAL);
-	UpdateWindow(this->hWnd);
-
-	MSG msg;
-	memset(&msg, 0, sizeof(MSG));
-
-	while (true){
-		if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)){
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-
-		//	UpdateWindow(this->hWnd);
-
-			if(msg.message == WM_QUIT){
-				break;
-			}
-		}
-		this->draw();
-	}
-}
-*/
 void renderer::draw(){
 	vk::Semaphore semaphore = this->device.createSemaphore(vk::SemaphoreCreateInfo());
 
@@ -677,8 +657,70 @@ void renderer::draw(){
 		throw std::runtime_error("Could not free frames.");
 
 	cmd_buffer.begin(vk::CommandBufferBeginInfo());
+
+	if(this->graphics_queue_family_index != this->present_queue_family_index){
+		vk::PipelineStageFlags generating_stages =
+			vk::PipelineStageFlagBits::eTopOfPipe;
+		vk::PipelineStageFlags consuming_stages =
+			vk::PipelineStageFlagBits::eColorAttachmentOutput;
+
+		cmd_buffer.pipelineBarrier(generating_stages, consuming_stages,
+			vk::DependencyFlags(),
+			std::vector<vk::MemoryBarrier>{},
+			std::vector<vk::BufferMemoryBarrier>{},
+			std::vector<vk::ImageMemoryBarrier>{
+				vk::ImageMemoryBarrier()
+					.setSrcAccessMask(vk::AccessFlagBits::eMemoryRead)
+					.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+					.setOldLayout(vk::ImageLayout::ePresentSrcKHR)
+					.setNewLayout(vk::ImageLayout::ePresentSrcKHR)
+					.setSrcQueueFamilyIndex(present_queue_family_index)
+					.setDstQueueFamilyIndex(graphics_queue_family_index)
+					.setImage(this->buffers[this->current_frame].image)
+					.setSubresourceRange(vk::ImageSubresourceRange()
+						.setAspectMask(vk::ImageAspectFlagBits::eColor)
+						.setBaseMipLevel(0)
+						.setLevelCount(1)
+						.setBaseArrayLayer(0)
+						.setLayerCount(1)
+					)
+			}
+		);
+	}
+
 	pipeline.cmd_fill_render_pass(cmd_buffer, this->framebuffers[current_frame],
-		vk::Rect2D(vk::Offset2D(0, 0), vk::Extent2D(500, 500)));
+		vk::Rect2D(vk::Offset2D(0, 0), screen_size));
+
+	if(this->graphics_queue_family_index != present_queue_family_index){
+		vk::PipelineStageFlags generating_stages =
+			vk::PipelineStageFlagBits::eTopOfPipe;
+		vk::PipelineStageFlags consuming_stages =
+			vk::PipelineStageFlagBits::eColorAttachmentOutput;
+
+		cmd_buffer.pipelineBarrier(generating_stages, consuming_stages,
+			vk::DependencyFlags(),
+			std::vector<vk::MemoryBarrier>{},
+			std::vector<vk::BufferMemoryBarrier>{},
+			std::vector<vk::ImageMemoryBarrier>{
+				vk::ImageMemoryBarrier()
+					.setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+					.setDstAccessMask(vk::AccessFlagBits::eMemoryRead)
+					.setOldLayout(vk::ImageLayout::ePresentSrcKHR)
+					.setNewLayout(vk::ImageLayout::ePresentSrcKHR)
+					.setSrcQueueFamilyIndex(graphics_queue_family_index)
+					.setDstQueueFamilyIndex(present_queue_family_index)
+					.setImage(this->buffers[this->current_frame].image)
+					.setSubresourceRange(vk::ImageSubresourceRange()
+						.setAspectMask(vk::ImageAspectFlagBits::eColor)
+						.setBaseMipLevel(0)
+						.setLevelCount(1)
+						.setBaseArrayLayer(0)
+						.setLayerCount(1)
+					)
+			}
+		);
+	}
+
 	cmd_buffer.end();
 
 	vk::Fence fance = this->device.createFence(vk::FenceCreateInfo());
@@ -696,7 +738,7 @@ void renderer::draw(){
 	};
 	this->graphics_queue.submit(submit_info, fance);
 
-	this->device.waitForFences(fance, true, 10000000);
+	while(this->device.waitForFences(fance, true, 10000000) != vk::Result::eSuccess);
 
 	this->present_queue.presentKHR(vk::PresentInfoKHR()
 //		.setWaitSemaphoreCount()
