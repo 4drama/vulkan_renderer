@@ -329,15 +329,53 @@ vk::PipelineCache create_pipeline_cache_f(const vk::Device &device){
 
 }
 
-void pipeline_t::init_graphic_pipeline(const vk::Device &device){
-	const std::vector<layout_f> layouts{};
+namespace{
+
+buffer_t create_mvp_buffer(const vk::Device &device,
+	const vk::PhysicalDevice &physical_device){
+	buffer_t buf;
+	buf.buf = device.createBuffer(vk::BufferCreateInfo()
+		.setSize(get_mvp_buffer_size())
+		.setUsage(vk::BufferUsageFlagBits::eUniformBuffer));
+
+	vk::MemoryRequirements mem_req = device.getBufferMemoryRequirements(buf.buf);
+
+	buf.mem = device.allocateMemory(vk::MemoryAllocateInfo()
+		.setAllocationSize(mem_req.size)
+		.setMemoryTypeIndex(memory_type_from_properties(
+			physical_device.getMemoryProperties(), mem_req,
+			vk::MemoryPropertyFlagBits::eHostVisible |
+			vk::MemoryPropertyFlagBits::eHostCoherent)));
+	buf.info = vk::DescriptorBufferInfo()
+		.setBuffer(buf.buf)
+		.setOffset(0)
+		.setRange(VK_WHOLE_SIZE);
+
+	device.bindBufferMemory(buf.buf, buf.mem, buf.info.offset);
+	return buf;
+}
+
+}
+
+void pipeline_t::init_graphic_pipeline(const vk::Device &device,
+	const vk::PhysicalDevice &physical_device){
+	this->mvp_buffer = create_mvp_buffer(device, physical_device);
+	update_mvp_buffer(camera(), device, this->mvp_buffer);
+
+	const std::vector<layout_f> layouts{
+		layout_f{
+			vk::DescriptorSetLayoutBinding()
+				.setBinding(0)
+				.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+				.setDescriptorCount(1)
+				.setStageFlags(vk::ShaderStageFlagBits::eVertex)
+				.setPImmutableSamplers(nullptr),
+			nullptr,
+			&this->mvp_buffer.info,
+			nullptr
+		}
+	};
 	this->add_descriptor_set_layout(device, layouts);
-	/*	VkDescriptorSetLayoutBinding layout_binding = {};
-		layout_binding.binding = 0;
-		layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		layout_binding.descriptorCount = 1;
-		layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-		layout_binding.pImmutableSamplers = NULL; */
 	this->init_const_range();
 
 	this->init_pipeline_layouts(device);

@@ -34,7 +34,8 @@ public:
 	void init_depth_buffer(const vk::Device &device,
 		const vk::PhysicalDevice &physical_device, vk::Extent2D window_size);
 
-	void init_graphic_pipeline(const vk::Device &device);
+	void init_graphic_pipeline(const vk::Device &device,
+		const vk::PhysicalDevice &physical_device);
 
 	// not comlited. need randerpass
 	std::vector<vk::Framebuffer> create_framebuffers(
@@ -74,6 +75,8 @@ private:
 	uint32_t vertex_count;
 	vk::VertexInputBindingDescription vi_binding;
 	std::array<vk::VertexInputAttributeDescription, 1> vi_attribs;
+
+	buffer_t mvp_buffer;
 
 	void add_descriptor_set_layout(const vk::Device &device,
 		const std::vector<layout_f> &layouts);

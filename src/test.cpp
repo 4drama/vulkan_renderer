@@ -36,7 +36,7 @@ void main_loop(renderer &rnd){
 		new_time = high_resolution_clock::now();
 
 		time_span = duration_cast<duration<double>>(new_time - old_time);
-		count_fps(time_span.count());
+	//	count_fps(time_span.count());
 
 		if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)){
 			TranslateMessage(&msg);

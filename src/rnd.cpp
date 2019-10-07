@@ -622,7 +622,7 @@ renderer::renderer(){
 
 	this->init_swapchain();
 	this->init_framebuffers();
-	this->pipeline.init_graphic_pipeline(this->device);
+	this->pipeline.init_graphic_pipeline(this->device, this->physical_device);
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam){

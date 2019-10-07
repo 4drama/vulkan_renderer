@@ -73,4 +73,12 @@ void save_file(std::string path, const std::vector<T> &bytecode){
 	file.write(reinterpret_cast<const char*>(bytecode.data()), bytecode.size());
 }
 
+struct camera{
+//	float pos_x, pos_y, pos_z;
+};
+
+std::size_t get_mvp_buffer_size();
+void update_mvp_buffer(const camera &cam,
+	const vk::Device &device, const buffer_t &buf);
+
 #endif

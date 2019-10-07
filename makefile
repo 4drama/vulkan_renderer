@@ -3,6 +3,8 @@ VK_VERSION= 1.1.114.0
 VK_INCLUDE= -IC:\libraries\VulkanSDK\$(VK_VERSION)\Include
 VK_LIB= -LC:\libraries\VulkanSDK\$(VK_VERSION)\Lib
 
+GLM_INCLUDE= -IE:\libraries\glm
+
 VK_LINK_FLAG= -lvulkan-1
 CPP_LINK_FLAG= -lstdc++ -g
 
@@ -10,7 +12,7 @@ SHADER_COMP= C:\libraries\VulkanSDK\$(VK_VERSION)\Bin\glslangValidator.exe
 
 ALL: cclean
 	gcc -c $(VK_INCLUDE) -std=c++17 ./src/rnd.cpp -o ./obj/rnd.o
-	gcc -c $(VK_INCLUDE) -std=c++17 ./src/utils.cpp -o ./obj/utils.o
+	gcc -c $(VK_INCLUDE) $(GLM_INCLUDE) -std=c++17 ./src/utils.cpp -o ./obj/utils.o
 	gcc -c $(VK_INCLUDE) -std=c++17 ./src/pipeline.cpp -o ./obj/pipeline.o
 	gcc -c $(VK_INCLUDE) -std=c++17 ./src/test.cpp -o ./obj/test.o
 
