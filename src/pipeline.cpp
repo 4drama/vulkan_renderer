@@ -34,7 +34,17 @@ vk::Buffer create_vertex_buffer_f(const vk::Device &device, vk::DeviceSize size)
 	return device.createBuffer(buffer_info);
 }
 
-vk::DeviceMemory allocate_vertex_buffer_f(const vk::Device &device,
+vk::Buffer create_index_buffer_f(const vk::Device &device, vk::DeviceSize size){
+	const vk::BufferCreateInfo buffer_info = vk::BufferCreateInfo()
+		.setSize(size)
+		.setUsage(vk::BufferUsageFlagBits::eIndexBuffer)
+/*		.setSharingMode()
+		.setQueueFamilyIndexCount()
+		.setPQueueFamilyIndices()*/;
+	return device.createBuffer(buffer_info);
+}
+
+vk::DeviceMemory allocate_buffer_f(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device, const vk::MemoryRequirements &mem_req){
 	vk::PhysicalDeviceMemoryProperties mem_prop
 		= physical_device.getMemoryProperties();
@@ -47,7 +57,7 @@ vk::DeviceMemory allocate_vertex_buffer_f(const vk::Device &device,
 	return device.allocateMemory(memory_info);
 }
 
-vk::DescriptorBufferInfo create_vertex_buffer_info_f(
+vk::DescriptorBufferInfo create_buffer_info_f(
 	const vk::Buffer &buf, const vk::MemoryRequirements &mem_req){
 	return vk::DescriptorBufferInfo()
 		.setBuffer(buf)
@@ -61,14 +71,27 @@ buffer_t create_vertex_buffer_f(const vk::Device &device,
 	vertex_buffer.buf = create_vertex_buffer_f(device, size);
 	vk::MemoryRequirements mem_req
 		= device.getBufferMemoryRequirements(vertex_buffer.buf);
-	vertex_buffer.mem = allocate_vertex_buffer_f(device, physical_device, mem_req);
+	vertex_buffer.mem = allocate_buffer_f(device, physical_device, mem_req);
 
 	vertex_buffer.info
-		= create_vertex_buffer_info_f(vertex_buffer.buf, mem_req);
+		= create_buffer_info_f(vertex_buffer.buf, mem_req);
 	return vertex_buffer;
 }
 
-void store_vertex_data_f(const vk::Device &device, const buffer_t &buffer,
+buffer_t create_index_buffer_f(const vk::Device &device,
+	const vk::PhysicalDevice &physical_device, vk::DeviceSize size){
+	buffer_t index_buffer{};
+	index_buffer.buf = create_index_buffer_f(device, size);
+	vk::MemoryRequirements mem_req
+		= device.getBufferMemoryRequirements(index_buffer.buf);
+	index_buffer.mem = allocate_buffer_f(device, physical_device, mem_req);
+
+	index_buffer.info
+		= create_buffer_info_f(index_buffer.buf, mem_req);
+	return index_buffer;
+}
+
+/*void store_vertex_data_f(const vk::Device &device, const buffer_t &buffer,
 	const scene_t &scene){
 	void *data_ptr = device.mapMemory(buffer.mem, buffer.info.offset,
 		buffer.info.range, vk::MemoryMapFlags());
@@ -82,9 +105,28 @@ void store_vertex_data_f(const vk::Device &device, const buffer_t &buffer,
 		}
 	}
 	device.unmapMemory(buffer.mem);
+}*/
+
+void store_vertex_data_f(const vk::Device &device, const buffer_t &buffer,
+	const std::vector<vertex> &verteces){
+	void *data_ptr = device.mapMemory(buffer.mem, buffer.info.offset,
+		buffer.info.range, vk::MemoryMapFlags());
+
+	memcpy(data_ptr, verteces.data(), verteces.size() * sizeof(vertex));
+
+	device.unmapMemory(buffer.mem);
+}
+void store_index_data_f(const vk::Device &device, const buffer_t &buffer,
+	const std::vector<uint32_t> &indeces){
+	void *data_ptr = device.mapMemory(buffer.mem, buffer.info.offset,
+		buffer.info.range, vk::MemoryMapFlags());
+
+	memcpy(data_ptr, indeces.data(), indeces.size() * sizeof(uint32_t));
+
+	device.unmapMemory(buffer.mem);
 }
 
-void bind_vertex_buffer_f(const vk::Device &device, const buffer_t &buffer){
+void bind_buffer_f(const vk::Device &device, const buffer_t &buffer){
 	device.bindBufferMemory(buffer.buf, buffer.mem, buffer.info.offset);
 }
 
@@ -233,8 +275,11 @@ void pipeline_t::cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 	cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout,
 		0, this->desc_sets, std::vector<uint32_t>());
 
-	cmd_buffer.bindVertexBuffers(0, std::vector<vk::Buffer>{this->vertex_buffer.buf},
-		std::vector<vk::DeviceSize>{0});
+	cmd_buffer.bindVertexBuffers(0, std::vector<vk::Buffer>{
+		this->scene_buffer.vertex_buffer.buf}, std::vector<vk::DeviceSize>{0});
+
+	cmd_buffer.bindIndexBuffer(this->scene_buffer.index_buffer.buf,
+		0, vk::IndexType::eUint32);
 
 	cmd_buffer.setViewport(0, std::vector<vk::Viewport>{
 		vk::Viewport()
@@ -251,12 +296,14 @@ void pipeline_t::cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 			.setExtent(vk::Extent2D(area.extent.width, area.extent.height))
 	});
 
-	cmd_buffer.draw(this->vertex_count, 1, 0, 0);
+//	cmd_buffer.draw(this->vertex_count, 1, 0, 0);
+
+	cmd_buffer.drawIndexed(this->scene_buffer.index_count, 1, 0, 0, 0);
 
 	cmd_buffer.endRenderPass();
 }
 
-void pipeline_t::load_scene(const vk::Device &device,
+/*void pipeline_t::load_scene(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device, const scene_t &scene){
 	destroy_vertex_buffer(device);
 
@@ -265,7 +312,26 @@ void pipeline_t::load_scene(const vk::Device &device,
 		physical_device, this->vertex_count * sizeof(polygon));
 
 	store_vertex_data_f(device, this->vertex_buffer, scene);
-	bind_vertex_buffer_f(device, this->vertex_buffer);
+	bind_buffer_f(device, this->vertex_buffer);
+}*/
+
+void pipeline_t::load_scene(const vk::Device &device,
+	const vk::PhysicalDevice &physical_device, const indeced_mash &mash){
+	this->scene_buffer.vertex_count = mash.verteces.size();
+
+	this->scene_buffer.vertex_buffer = create_vertex_buffer_f(device,
+		physical_device, mash.verteces.size() * sizeof(vertex));
+
+	store_vertex_data_f(device, this->scene_buffer.vertex_buffer, mash.verteces);
+	bind_buffer_f(device, this->scene_buffer.vertex_buffer);
+
+	this->scene_buffer.index_count = mash.indeces.size();
+
+	this->scene_buffer.index_buffer = create_index_buffer_f(device,
+		physical_device, mash.indeces.size() * sizeof(uint32_t));
+
+	store_index_data_f(device, this->scene_buffer.index_buffer, mash.indeces);
+	bind_buffer_f(device, this->scene_buffer.index_buffer);
 }
 
 void pipeline_t::init_depth_buffer(const vk::Device &device,

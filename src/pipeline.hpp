@@ -23,13 +23,29 @@ struct scene_t{
 	uint32_t get_vertex_count() const;
 };
 
+struct indeced_mash{
+	std::vector<vertex> verteces;
+	std::vector<uint32_t> indeces;
+};
+
+struct indeced_mash_vk{
+	buffer_t vertex_buffer;
+	buffer_t index_buffer;
+
+	uint32_t vertex_count;
+	uint32_t index_count;
+};
+
 class pipeline_t{
 public:
 	void cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 		const vk::Framebuffer &frame, vk::Rect2D area) const;
 
+/*	void load_scene(const vk::Device &device,
+		const vk::PhysicalDevice &physical_device, const scene_t &scene);*/
+
 	void load_scene(const vk::Device &device,
-		const vk::PhysicalDevice &physical_device, const scene_t &scene);
+		const vk::PhysicalDevice &physical_device, const indeced_mash &mash);
 
 	void init_depth_buffer(const vk::Device &device,
 		const vk::PhysicalDevice &physical_device, vk::Extent2D window_size);
@@ -37,7 +53,6 @@ public:
 	void init_graphic_pipeline(const vk::Device &device,
 		const vk::PhysicalDevice &physical_device);
 
-	// not comlited. need randerpass
 	std::vector<vk::Framebuffer> create_framebuffers(
 		const vk::Device &device,
 		const vk::PhysicalDevice &physical_device,
@@ -71,8 +86,9 @@ private:
 
 	vk::RenderPass render_pass;
 
-	buffer_t vertex_buffer;
-	uint32_t vertex_count;
+//	buffer_t vertex_buffer;
+//	uint32_t vertex_count;
+	indeced_mash_vk scene_buffer;
 	vk::VertexInputBindingDescription vi_binding;
 	std::array<vk::VertexInputAttributeDescription, 1> vi_attribs;
 

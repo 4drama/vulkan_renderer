@@ -15,7 +15,8 @@ public:
 	renderer();
 	~renderer() = default;
 
-	void set_scene(scene_t *scene_ptr);
+//	void set_scene(scene_t *scene_ptr);
+	void set_scene(indeced_mash *mash_ptr);
 
 	void show_window();
 	void draw();

@@ -29,9 +29,13 @@ namespace {
 	};
 }
 
-void renderer::set_scene(scene_t *scene){
+/*void renderer::set_scene(scene_t *scene){
 //	this->scene_ptr = scene;
 	this->pipeline.load_scene(this->device, this->physical_device, *scene);
+}*/
+
+void renderer::set_scene(indeced_mash *mash_ptr){
+	this->pipeline.load_scene(this->device, this->physical_device, *mash_ptr);
 }
 
 void renderer::init_window(){
