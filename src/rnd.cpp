@@ -651,6 +651,8 @@ void renderer::show_window(){
 }
 
 void renderer::draw(){
+	this->pipeline.update_camera(this->device, camera());
+
 	vk::Semaphore semaphore = this->device.createSemaphore(vk::SemaphoreCreateInfo());
 
 	vk::ResultValue<uint32_t> frame_result = this->device.acquireNextImageKHR(

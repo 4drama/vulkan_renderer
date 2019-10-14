@@ -81,4 +81,11 @@ std::size_t get_mvp_buffer_size();
 void update_mvp_buffer(const camera &cam,
 	const vk::Device &device, const buffer_t &buf);
 
+struct indeced_mash{
+	std::vector<vertex> verteces;
+	std::vector<uint32_t> indeces;
+};
+
+indeced_mash load_obj(std::string path);
+
 #endif

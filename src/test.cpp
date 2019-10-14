@@ -53,37 +53,10 @@ void main_loop(renderer &rnd){
 }
 
 int main() try {
-/*	scene_t scene_one{};
-	scene_one.add_object(
-		mesh{
-			std::vector<polygon>{
-				{
-					vertex{-1, -1, 0, 1},
-					vertex{1, -1, 0, 1},
-					vertex{-1, 1, 0, 1}
-				},
-				{
-					vertex{1, -1, 0, 1},
-					vertex{1, 1, 0, 1},
-					vertex{-1, 1, 0, 1}
-				}
-			}
-		}
-	);*/
-	indeced_mash mash{
-		std::vector<vertex>{
-			vertex{-1, -1, 0, 1},
-			vertex{1, -1, 0, 1},
-			vertex{-1, 1, 0, 1},
-			vertex{1, 1, 0, 1}
-		},
-		std::vector<uint32_t>{
-			0, 1, 2, 2, 1, 3
-		}
-	};
+//	indeced_mash mash = load_obj("./data/box.obj");
+	indeced_mash mash = load_obj("./data/challenger/CHALLENGER71.obj");
 
 	renderer r2{};
-//	r2.set_scene(&scene_one);
 	r2.set_scene(&mash);
 	main_loop(r2);
 

@@ -1,4 +1,5 @@
 vk_layer_settings.txt
+/data/challenger/*
 *.o
 *.spv
 *.dll

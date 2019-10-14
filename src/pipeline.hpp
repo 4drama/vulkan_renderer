@@ -23,11 +23,6 @@ struct scene_t{
 	uint32_t get_vertex_count() const;
 };
 
-struct indeced_mash{
-	std::vector<vertex> verteces;
-	std::vector<uint32_t> indeces;
-};
-
 struct indeced_mash_vk{
 	buffer_t vertex_buffer;
 	buffer_t index_buffer;
@@ -38,6 +33,7 @@ struct indeced_mash_vk{
 
 class pipeline_t{
 public:
+	void update_camera(const vk::Device &device, camera cam);
 	void cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 		const vk::Framebuffer &frame, vk::Rect2D area) const;
 

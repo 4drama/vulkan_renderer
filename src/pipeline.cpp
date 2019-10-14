@@ -254,6 +254,10 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 	);
 }
 
+void pipeline_t::update_camera(const vk::Device &device, camera cam){
+	update_mvp_buffer(cam, device, this->mvp_buffer);
+}
+
 void pipeline_t::cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 	const vk::Framebuffer &frame, vk::Rect2D area) const{
 	std::array<vk::ClearValue, 2> clear_values{
@@ -426,7 +430,7 @@ buffer_t create_mvp_buffer(const vk::Device &device,
 void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device){
 	this->mvp_buffer = create_mvp_buffer(device, physical_device);
-	update_mvp_buffer(camera(), device, this->mvp_buffer);
+//	update_mvp_buffer(camera(), device, this->mvp_buffer);
 
 	const std::vector<layout_f> layouts{
 		layout_f{
