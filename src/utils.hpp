@@ -20,6 +20,7 @@ struct swapchain_buffers_type {
 
 struct vertex{
 	float pos_x, pos_y, pos_z, pos_w;
+	float norm_x = 0, norm_y = 0, norm_z = 0, norm_w = 0;
 };
 
 struct polygon{

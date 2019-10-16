@@ -86,20 +86,20 @@ vk::ImageView create_2d_image_view(const vk::Device &device,
 }
 
 std::size_t get_mvp_buffer_size(){
-	return sizeof(glm::mat4);
+	return sizeof(glm::mat4) * 2;
 }
 
 void update_mvp_buffer(const camera &cam,
 	const vk::Device &device, const buffer_t &buf){
 	glm::mat4 Projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
 	glm::mat4 View = glm::lookAt(
-		glm::vec3(8/* * sin(rt)*/, 0/* * cos(rt)*/, 3), // Camera is at (-5,3,-10), in World Space
+		glm::vec3(0, 2.5, -7), // Camera is at (-5,3,-10), in World Space
 		glm::vec3(0, 0, 0),    // and looks at the origin
-		glm::vec3(0, 0, 1)    // Head is up (set to 0,-1,0 to look upside-down)
+		glm::vec3(0, 1, 0)    // Head is up (set to 0,-1,0 to look upside-down)
 	);
 	static float angle = 0.0f;
 	glm::mat4 Model = glm::rotate(glm::mat4(1.0f), glm::radians(angle),
-		glm::vec3(0.0f, 0.0f, 1.0f));
+		glm::vec3(0.0f, 1.0f, 0.0f));
 	angle += 1.0f;
 	// Vulkan clip space has inverted Y and half Z.
 	glm::mat4 Clip = glm::mat4(
@@ -108,12 +108,14 @@ void update_mvp_buffer(const camera &cam,
 		0.0f,  0.0f, 0.5f, 0.0f,
 		0.0f,  0.0f, 0.5f, 1.0f);
 
+	glm::mat4 mv = View * glm::transpose(glm::inverse(Model));
 	glm::mat4 mvp = Clip * Projection * View * Model;
 
 //	vk::DeviceSize size = device.getMemoryCommitment(mem);
 
 	void *data_ptr = device.mapMemory(buf.mem, 0, buf.info.range, vk::MemoryMapFlags());
-	memcpy(data_ptr, &mvp, sizeof(mvp));
+	memcpy(data_ptr, &mvp, sizeof(glm::mat4));
+	memcpy(data_ptr + sizeof(glm::mat4), &mv, sizeof(glm::mat4));
     device.unmapMemory(buf.mem);
 }
 
@@ -135,8 +137,10 @@ indeced_mash load_obj(std::string path){
 	}
 	indeced_mash mash;
 	for(uint32_t i = 0; i < attribs.vertices.size(); i += 3){
-		mash.verteces.emplace_back(vertex{attribs.vertices[i], attribs.vertices[i+1],
-			attribs.vertices[i+2], 1});
+		mash.verteces.emplace_back(vertex{attribs.vertices[i], attribs.vertices[i+2],
+			attribs.vertices[i+1], 1,
+			attribs.normals[i], attribs.normals[i+1],
+			attribs.normals[i+2], 1});
 	}
 
 	for(auto &shape : shapes){
@@ -144,5 +148,6 @@ indeced_mash load_obj(std::string path){
 			mash.indeces.emplace_back(index.vertex_index);
 		}
 	}
+
 	return mash;
 }

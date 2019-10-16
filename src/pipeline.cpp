@@ -91,22 +91,6 @@ buffer_t create_index_buffer_f(const vk::Device &device,
 	return index_buffer;
 }
 
-/*void store_vertex_data_f(const vk::Device &device, const buffer_t &buffer,
-	const scene_t &scene){
-	void *data_ptr = device.mapMemory(buffer.mem, buffer.info.offset,
-		buffer.info.range, vk::MemoryMapFlags());
-
-	std::ptrdiff_t offset = 0;
-	const std::size_t polygon_size = sizeof(vertex) * 3;
-	for(auto &obj : scene.objects){
-		for(auto &poly : obj.polygons){
-			memcpy(data_ptr + offset, poly.data.data(), polygon_size);
-			offset += polygon_size;
-		}
-	}
-	device.unmapMemory(buffer.mem);
-}*/
-
 void store_vertex_data_f(const vk::Device &device, const buffer_t &buffer,
 	const std::vector<vertex> &verteces){
 	void *data_ptr = device.mapMemory(buffer.mem, buffer.info.offset,
@@ -143,6 +127,12 @@ void pipeline_t::describing_vertex_data(){
 		.setBinding(0)
 		.setFormat(vk::Format::eR32G32B32A32Sfloat)
 		.setOffset(0);
+
+	this->vi_attribs[1] = vk::VertexInputAttributeDescription()
+		.setLocation(1)
+		.setBinding(0)
+		.setFormat(vk::Format::eR32G32B32A32Sfloat)
+		.setOffset(16);
 }
 
 void pipeline_t::init_pipeline(const vk::Device &device){
@@ -306,18 +296,6 @@ void pipeline_t::cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 
 	cmd_buffer.endRenderPass();
 }
-
-/*void pipeline_t::load_scene(const vk::Device &device,
-	const vk::PhysicalDevice &physical_device, const scene_t &scene){
-	destroy_vertex_buffer(device);
-
-	this->vertex_count = scene.get_vertex_count();
-	this->vertex_buffer = create_vertex_buffer_f(device,
-		physical_device, this->vertex_count * sizeof(polygon));
-
-	store_vertex_data_f(device, this->vertex_buffer, scene);
-	bind_buffer_f(device, this->vertex_buffer);
-}*/
 
 void pipeline_t::load_scene(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device, const indeced_mash &mash){
