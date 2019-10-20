@@ -108,7 +108,7 @@ void update_mvp_buffer(const camera &cam,
 		0.0f,  0.0f, 0.5f, 0.0f,
 		0.0f,  0.0f, 0.5f, 1.0f);
 
-	glm::mat4 mv = View * glm::transpose(glm::inverse(Model));
+	glm::mat4 mv = glm::transpose(glm::inverse(Model * View));
 	glm::mat4 mvp = Clip * Projection * View * Model;
 
 //	vk::DeviceSize size = device.getMemoryCommitment(mem);
@@ -117,6 +117,23 @@ void update_mvp_buffer(const camera &cam,
 	memcpy(data_ptr, &mvp, sizeof(glm::mat4));
 	memcpy(data_ptr + sizeof(glm::mat4), &mv, sizeof(glm::mat4));
     device.unmapMemory(buf.mem);
+}
+
+struct normal{
+	float x = 0, y = 0, z = 0;
+};
+
+void add_normal(vertex &v, normal n){
+	v.norm_x += n.x;
+	v.norm_y += n.y;
+	v.norm_z += n.z;
+}
+
+void normalize(vertex &v){
+	float length = sqrt(pow(v.norm_x, 2) + pow(v.norm_y, 2) + pow(v.norm_z, 2));
+	v.norm_x /= length;
+	v.norm_y /= length;
+	v.norm_z /= length;
 }
 
 indeced_mash load_obj(std::string path){
@@ -135,18 +152,29 @@ indeced_mash load_obj(std::string path){
 		}
 		throw std::runtime_error(msg);
 	}
+
 	indeced_mash mash;
 	for(uint32_t i = 0; i < attribs.vertices.size(); i += 3){
 		mash.verteces.emplace_back(vertex{attribs.vertices[i], attribs.vertices[i+2],
-			attribs.vertices[i+1], 1,
-			attribs.normals[i], attribs.normals[i+1],
-			attribs.normals[i+2], 1});
+			attribs.vertices[i+1], 1});
+	}
+
+	std::vector<normal> normals{};
+	for(uint32_t i = 0; i < attribs.normals.size(); i += 3){
+		normals.emplace_back(normal{attribs.normals[i], attribs.normals[i+2],
+			attribs.normals[i+1]});
 	}
 
 	for(auto &shape : shapes){
 		for(auto &index : shape.mesh.indices){
 			mash.indeces.emplace_back(index.vertex_index);
+
+			add_normal(mash.verteces[index.vertex_index], normals[index.normal_index]);
 		}
+	}
+
+	for(auto &vertex : mash.verteces){
+		normalize(vertex);
 	}
 
 	return mash;

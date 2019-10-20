@@ -9,9 +9,12 @@ layout( set = 0, binding = 0 ) uniform MVPBuffer {
 };
 
 layout (location = 0) out vec3 out_normal;
+layout (location = 1) out vec3 out_pos;
 
 void main(){
 	gl_Position = mvp * app_position;
 	vec4 normal = mv * app_normal;
+
 	out_normal = normal.xyz;
+	out_pos = vec4(mv * app_position).xyz;
 }
