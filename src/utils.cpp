@@ -9,6 +9,37 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
+buffer_t create_buffer(const vk::Device &device,
+	const vk::PhysicalDeviceMemoryProperties &mem_prop,
+	vk::BufferUsageFlags usage_flag, vk::MemoryPropertyFlags prop_flag,
+	vk::DeviceSize size){
+
+	buffer_t buffer{};
+	buffer.buf = device.createBuffer(vk::BufferCreateInfo()
+		.setSize(size)
+		.setUsage(usage_flag));
+
+	vk::MemoryRequirements mem_req = device.getBufferMemoryRequirements(buffer.buf);;
+
+	buffer.mem = device.allocateMemory(vk::MemoryAllocateInfo()
+		.setAllocationSize(mem_req.size)
+		.setMemoryTypeIndex(memory_type_from_properties(mem_prop, mem_req, prop_flag)));
+
+	buffer.info = vk::DescriptorBufferInfo()
+		.setBuffer(buffer.buf)
+		.setOffset(0)
+		.setRange(mem_req.size);
+
+	device.bindBufferMemory(buffer.buf, buffer.mem, buffer.info.offset);
+	return buffer;
+}
+
+void destroy(const vk::Device &device, buffer_t &buf){
+	device.destroy(buf.buf);
+	device.free(buf.mem);
+	buf.info = vk::DescriptorBufferInfo();
+};
+
 vk::Image create_depth_image(const vk::Device &device, vk::Format format,
 	vk::Extent2D window_size, vk::FormatProperties format_prop,
 	vk::SampleCountFlagBits num_samples){

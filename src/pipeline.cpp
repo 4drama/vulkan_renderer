@@ -24,73 +24,6 @@ void destroy_vertex_buffer(const vk::Device &device){
 
 namespace{
 
-vk::Buffer create_vertex_buffer_f(const vk::Device &device, vk::DeviceSize size){
-	const vk::BufferCreateInfo buffer_info = vk::BufferCreateInfo()
-		.setSize(size)
-		.setUsage(vk::BufferUsageFlagBits::eVertexBuffer)
-/*		.setSharingMode()
-		.setQueueFamilyIndexCount()
-		.setPQueueFamilyIndices()*/;
-	return device.createBuffer(buffer_info);
-}
-
-vk::Buffer create_index_buffer_f(const vk::Device &device, vk::DeviceSize size){
-	const vk::BufferCreateInfo buffer_info = vk::BufferCreateInfo()
-		.setSize(size)
-		.setUsage(vk::BufferUsageFlagBits::eIndexBuffer)
-/*		.setSharingMode()
-		.setQueueFamilyIndexCount()
-		.setPQueueFamilyIndices()*/;
-	return device.createBuffer(buffer_info);
-}
-
-vk::DeviceMemory allocate_buffer_f(const vk::Device &device,
-	const vk::PhysicalDevice &physical_device, const vk::MemoryRequirements &mem_req){
-	vk::PhysicalDeviceMemoryProperties mem_prop
-		= physical_device.getMemoryProperties();
-
-	const vk::MemoryAllocateInfo memory_info = vk::MemoryAllocateInfo()
-		.setAllocationSize(mem_req.size)
-		.setMemoryTypeIndex(memory_type_from_properties(mem_prop, mem_req,
-			vk::MemoryPropertyFlagBits::eHostVisible |
-			vk::MemoryPropertyFlagBits::eHostCoherent));
-	return device.allocateMemory(memory_info);
-}
-
-vk::DescriptorBufferInfo create_buffer_info_f(
-	const vk::Buffer &buf, const vk::MemoryRequirements &mem_req){
-	return vk::DescriptorBufferInfo()
-		.setBuffer(buf)
-		.setOffset(0)
-		.setRange(mem_req.size);
-}
-
-buffer_t create_vertex_buffer_f(const vk::Device &device,
-	const vk::PhysicalDevice &physical_device, vk::DeviceSize size){
-	buffer_t vertex_buffer{};
-	vertex_buffer.buf = create_vertex_buffer_f(device, size);
-	vk::MemoryRequirements mem_req
-		= device.getBufferMemoryRequirements(vertex_buffer.buf);
-	vertex_buffer.mem = allocate_buffer_f(device, physical_device, mem_req);
-
-	vertex_buffer.info
-		= create_buffer_info_f(vertex_buffer.buf, mem_req);
-	return vertex_buffer;
-}
-
-buffer_t create_index_buffer_f(const vk::Device &device,
-	const vk::PhysicalDevice &physical_device, vk::DeviceSize size){
-	buffer_t index_buffer{};
-	index_buffer.buf = create_index_buffer_f(device, size);
-	vk::MemoryRequirements mem_req
-		= device.getBufferMemoryRequirements(index_buffer.buf);
-	index_buffer.mem = allocate_buffer_f(device, physical_device, mem_req);
-
-	index_buffer.info
-		= create_buffer_info_f(index_buffer.buf, mem_req);
-	return index_buffer;
-}
-
 void store_vertex_data_f(const vk::Device &device, const buffer_t &buffer,
 	const std::vector<vertex> &verteces){
 	void *data_ptr = device.mapMemory(buffer.mem, buffer.info.offset,
@@ -100,6 +33,7 @@ void store_vertex_data_f(const vk::Device &device, const buffer_t &buffer,
 
 	device.unmapMemory(buffer.mem);
 }
+
 void store_index_data_f(const vk::Device &device, const buffer_t &buffer,
 	const std::vector<uint32_t> &indeces){
 	void *data_ptr = device.mapMemory(buffer.mem, buffer.info.offset,
@@ -108,10 +42,6 @@ void store_index_data_f(const vk::Device &device, const buffer_t &buffer,
 	memcpy(data_ptr, indeces.data(), indeces.size() * sizeof(uint32_t));
 
 	device.unmapMemory(buffer.mem);
-}
-
-void bind_buffer_f(const vk::Device &device, const buffer_t &buffer){
-	device.bindBufferMemory(buffer.buf, buffer.mem, buffer.info.offset);
 }
 
 }
@@ -297,23 +227,183 @@ void pipeline_t::cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 	cmd_buffer.endRenderPass();
 }
 
-void pipeline_t::load_scene(const vk::Device &device,
+
+namespace{
+
+struct host_to_device_f{
+
+	buffer_t host_stage_buffer;
+	buffer_t device_buffer;
+
+	vk::BufferMemoryBarrier get_begin_transfer_barrier(vk::AccessFlags srcAccessMask){
+		return vk::BufferMemoryBarrier()
+			.setSrcAccessMask(srcAccessMask)
+			.setDstAccessMask(vk::AccessFlagBits::eTransferWrite)
+			.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+			.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+			.setBuffer(device_buffer.buf)
+			.setOffset(0)
+			.setSize(VK_WHOLE_SIZE);
+	}
+
+	vk::BufferMemoryBarrier get_end_transfer_barrier(vk::AccessFlags dstAccessMask){
+		return vk::BufferMemoryBarrier()
+			.setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+			.setDstAccessMask(dstAccessMask)
+			.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+			.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+			.setBuffer(device_buffer.buf)
+			.setOffset(0)
+			.setSize(VK_WHOLE_SIZE);
+	}
+};
+
+host_to_device_f create_buffers_f(const vk::Device &device,
+	vk::PhysicalDeviceMemoryProperties mem_prop,
+	vk::BufferUsageFlags usage_flag, vk::DeviceSize size){
+
+	vk::MemoryPropertyFlags stage_property =
+		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+
+	vk::MemoryPropertyFlags device_property =
+		vk::MemoryPropertyFlagBits::eDeviceLocal;
+
+	host_to_device_f buffers{};
+
+	buffers.host_stage_buffer = create_buffer(device, mem_prop,
+		usage_flag | vk::BufferUsageFlagBits::eTransferSrc,
+		stage_property, size);
+
+	buffers.device_buffer = create_buffer(device, mem_prop,
+		usage_flag | vk::BufferUsageFlagBits::eTransferDst,
+		device_property, size);
+
+	return buffers;
+}
+
+struct stage_vertex_buffer_f{
+	host_to_device_f vertex_buffer;
+	host_to_device_f index_buffer;
+};
+
+stage_vertex_buffer_f create_vertex_stage_buffer_f(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device, const indeced_mash &mash){
+
+	const vk::PhysicalDeviceMemoryProperties mem_prop =
+		physical_device.getMemoryProperties();
+
+	const uint32_t vertex_count = mash.verteces.size();
+	stage_vertex_buffer_f stage_buf{};
+	stage_buf.vertex_buffer = create_buffers_f(device, mem_prop,
+		vk::BufferUsageFlagBits::eVertexBuffer, vertex_count * sizeof(vertex));
+
+	const uint32_t index_count = mash.indeces.size();
+	stage_buf.index_buffer = create_buffers_f(device, mem_prop,
+		vk::BufferUsageFlagBits::eIndexBuffer, index_count * sizeof(uint32_t));
+
+	return stage_buf;
+}
+
+void update_host_vertex_stage_buffer_f(const vk::Device &device, const indeced_mash &mash,
+	stage_vertex_buffer_f *buffer_ptr){
+
+	store_vertex_data_f(device, buffer_ptr->vertex_buffer.host_stage_buffer, mash.verteces);
+	store_index_data_f(device, buffer_ptr->index_buffer.host_stage_buffer, mash.indeces);
+}
+
+void cmd_to_device_memory_f(std::vector<host_to_device_f*> src_buffers,
+	vk::CommandBuffer cmd_buf, vk::PipelineStageFlags final_consuming_stages){
+
+	std::vector<vk::BufferMemoryBarrier> buffer_memory_barriers{};
+	for(auto &buf : src_buffers){
+		buffer_memory_barriers.emplace_back(
+			buf->get_begin_transfer_barrier(vk::AccessFlags()));
+	}
+
+	vk::PipelineStageFlags generating_stages = vk::PipelineStageFlagBits::eTopOfPipe;
+	vk::PipelineStageFlags consuming_stages = vk::PipelineStageFlagBits::eTransfer;
+
+	cmd_buf.pipelineBarrier(generating_stages, consuming_stages, vk::DependencyFlags(),
+		std::vector<vk::MemoryBarrier>(), buffer_memory_barriers,
+		std::vector<vk::ImageMemoryBarrier>());
+
+	for(auto &buf : src_buffers){
+		cmd_buf.copyBuffer(buf->host_stage_buffer.buf, buf->device_buffer.buf,
+			std::vector<vk::BufferCopy>{
+				{
+					buf->host_stage_buffer.info.offset,
+					buf->device_buffer.info.offset,
+					buf->host_stage_buffer.info.range
+				}
+			});
+	}
+
+	buffer_memory_barriers.clear();
+	for(auto &buf : src_buffers){
+		buffer_memory_barriers.emplace_back(
+			buf->get_end_transfer_barrier(vk::AccessFlags()));
+	}
+
+	generating_stages = vk::PipelineStageFlagBits::eTransfer;
+	consuming_stages = final_consuming_stages;
+
+	cmd_buf.pipelineBarrier(generating_stages, consuming_stages, vk::DependencyFlags(),
+		std::vector<vk::MemoryBarrier>(), buffer_memory_barriers,
+		std::vector<vk::ImageMemoryBarrier>());
+}
+
+void load_to_device_memory_f(
+	vk::Device device, vk::CommandBuffer cmd_buffer, vk::Queue queue,
+	std::vector<host_to_device_f*> buffers){
+
+	cmd_buffer.begin(vk::CommandBufferBeginInfo(
+		vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+
+	cmd_to_device_memory_f(buffers, cmd_buffer,
+		vk::PipelineStageFlagBits::eBottomOfPipe);
+
+	cmd_buffer.end();
+
+	vk::Fence fance = device.createFence(vk::FenceCreateInfo());
+	vk::PipelineStageFlags pipe_stage_flags = vk::PipelineStageFlagBits::eBottomOfPipe;
+	queue.submit(std::array<vk::SubmitInfo, 1>{
+		vk::SubmitInfo()
+			.setWaitSemaphoreCount(0)
+			.setPWaitSemaphores(nullptr)
+			.setPWaitDstStageMask(&pipe_stage_flags)
+			.setCommandBufferCount(1)
+			.setPCommandBuffers(&cmd_buffer)
+			.setSignalSemaphoreCount(0)
+			.setPSignalSemaphores(nullptr)
+	}, fance);
+
+	while(device.waitForFences(fance, true, 10000000) != vk::Result::eSuccess);
+
+	device.destroy(fance);
+}
+
+}
+
+void pipeline_t::load_scene(const vk::Device &device,
+	const vk::PhysicalDevice &physical_device,
+	const vk::CommandBuffer &cmd_buffer, const vk::Queue &queue,
+	const indeced_mash &mash){
+
+	stage_vertex_buffer_f vertex_tmp_buffer = create_vertex_stage_buffer_f(device,
+		physical_device, mash);
+	update_host_vertex_stage_buffer_f(device, mash, &vertex_tmp_buffer);
+
+	load_to_device_memory_f(device, cmd_buffer, queue, std::vector<host_to_device_f*>{
+		&vertex_tmp_buffer.vertex_buffer , &vertex_tmp_buffer.index_buffer});
+
+	destroy(device, vertex_tmp_buffer.vertex_buffer.host_stage_buffer);
+	destroy(device, vertex_tmp_buffer.index_buffer.host_stage_buffer);
+
+	this->scene_buffer.vertex_buffer = vertex_tmp_buffer.vertex_buffer.device_buffer;
 	this->scene_buffer.vertex_count = mash.verteces.size();
 
-	this->scene_buffer.vertex_buffer = create_vertex_buffer_f(device,
-		physical_device, mash.verteces.size() * sizeof(vertex));
-
-	store_vertex_data_f(device, this->scene_buffer.vertex_buffer, mash.verteces);
-	bind_buffer_f(device, this->scene_buffer.vertex_buffer);
-
+	this->scene_buffer.index_buffer = vertex_tmp_buffer.index_buffer.device_buffer;
 	this->scene_buffer.index_count = mash.indeces.size();
-
-	this->scene_buffer.index_buffer = create_index_buffer_f(device,
-		physical_device, mash.indeces.size() * sizeof(uint32_t));
-
-	store_index_data_f(device, this->scene_buffer.index_buffer, mash.indeces);
-	bind_buffer_f(device, this->scene_buffer.index_buffer);
 }
 
 void pipeline_t::init_depth_buffer(const vk::Device &device,

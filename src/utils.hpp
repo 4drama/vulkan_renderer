@@ -13,6 +13,13 @@ struct buffer_t{
 	vk::DescriptorBufferInfo info;
 };
 
+buffer_t create_buffer(const vk::Device &device,
+	const vk::PhysicalDeviceMemoryProperties &mem_prop,
+	vk::BufferUsageFlags usage_flag, vk::MemoryPropertyFlags prop_flag,
+	vk::DeviceSize size);
+
+void destroy(const vk::Device &device, buffer_t &bufs);
+
 struct swapchain_buffers_type {
 	vk::Image image;
 	vk::ImageView view;

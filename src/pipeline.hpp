@@ -37,11 +37,10 @@ public:
 	void cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 		const vk::Framebuffer &frame, vk::Rect2D area) const;
 
-/*	void load_scene(const vk::Device &device,
-		const vk::PhysicalDevice &physical_device, const scene_t &scene);*/
-
 	void load_scene(const vk::Device &device,
-		const vk::PhysicalDevice &physical_device, const indeced_mash &mash);
+		const vk::PhysicalDevice &physical_device,
+		const vk::CommandBuffer &cmd_buffer, const vk::Queue &queue,
+		const indeced_mash &mash);
 
 	void init_depth_buffer(const vk::Device &device,
 		const vk::PhysicalDevice &physical_device, vk::Extent2D window_size);
@@ -82,8 +81,6 @@ private:
 
 	vk::RenderPass render_pass;
 
-//	buffer_t vertex_buffer;
-//	uint32_t vertex_count;
 	indeced_mash_vk scene_buffer;
 	vk::VertexInputBindingDescription vi_binding;
 	std::array<vk::VertexInputAttributeDescription, 2> vi_attribs;
