@@ -167,6 +167,10 @@ void normalize(vertex &v){
 	v.norm_z /= length;
 }
 
+glm::vec3 vertex_pos_vec(vertex &v){
+	return glm::vec3(v.pos_x, v.pos_y, v.pos_z);
+}
+
 indeced_mash load_obj(std::string path){
 	tinyobj::attrib_t attribs;
 	std::vector<tinyobj::shape_t> shapes;
@@ -200,7 +204,22 @@ indeced_mash load_obj(std::string path){
 		for(auto &index : shape.mesh.indices){
 			mash.indeces.emplace_back(index.vertex_index);
 
-			add_normal(mash.verteces[index.vertex_index], normals[index.normal_index]);
+			if(normals.size() != 0)
+				add_normal(mash.verteces[index.vertex_index], normals[index.normal_index]);
+		}
+	}
+
+	if(normals.size() == 0){
+		for(uint32_t i = 0; i < mash.indeces.size(); i += 3){
+			glm::vec3 vec1 = vertex_pos_vec(mash.verteces[mash.indeces[i + 1]]) -
+				vertex_pos_vec(mash.verteces[mash.indeces[i]]);
+			glm::vec3 vec2 = vertex_pos_vec(mash.verteces[mash.indeces[i + 2]]) -
+				vertex_pos_vec(mash.verteces[mash.indeces[i]]);
+			glm::vec3 norm = cross(vec2, vec1);
+
+			add_normal(mash.verteces[mash.indeces[i]], normal{norm.x, norm.y, norm.z});
+			add_normal(mash.verteces[mash.indeces[i + 1]], normal{norm.x, norm.y, norm.z});
+			add_normal(mash.verteces[mash.indeces[i + 2]], normal{norm.x, norm.y, norm.z});
 		}
 	}
 
