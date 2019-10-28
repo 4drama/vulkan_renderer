@@ -26,8 +26,10 @@ struct swapchain_buffers_type {
 };
 
 struct vertex{
-	float pos_x, pos_y, pos_z, pos_w;
-	float norm_x = 0, norm_y = 0, norm_z = 0, norm_w = 0;
+	float pos_x, pos_y, pos_z;
+	float norm_x = 0, norm_y = 0, norm_z = 0;
+	float u = 0, v = 0;
+	float r = 1, g = 1, b = 1;
 };
 
 struct polygon{
@@ -78,7 +80,8 @@ std::vector<T> load_file(std::string path){
 template<typename T>
 void save_file(std::string path, const std::vector<T> &bytecode){
 	std::ofstream file(path, std::ios::out | std::ios::binary);
-	file.write(reinterpret_cast<const char*>(bytecode.data()), bytecode.size());
+	file.write(reinterpret_cast<const char*>(bytecode.data()),
+		bytecode.size() * sizeof(T));
 }
 
 struct camera{

@@ -83,7 +83,7 @@ private:
 
 	indeced_mash_vk scene_buffer;
 	vk::VertexInputBindingDescription vi_binding;
-	std::array<vk::VertexInputAttributeDescription, 2> vi_attribs;
+	std::array<vk::VertexInputAttributeDescription, 4> vi_attribs;
 
 	buffer_t mvp_buffer;
 

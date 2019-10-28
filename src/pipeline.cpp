@@ -55,14 +55,26 @@ void pipeline_t::describing_vertex_data(){
 	this->vi_attribs[0] = vk::VertexInputAttributeDescription()
 		.setLocation(0)
 		.setBinding(0)
-		.setFormat(vk::Format::eR32G32B32A32Sfloat)
+		.setFormat(vk::Format::eR32G32B32Sfloat)
 		.setOffset(0);
 
 	this->vi_attribs[1] = vk::VertexInputAttributeDescription()
 		.setLocation(1)
 		.setBinding(0)
-		.setFormat(vk::Format::eR32G32B32A32Sfloat)
-		.setOffset(16);
+		.setFormat(vk::Format::eR32G32B32Sfloat)
+		.setOffset(12);
+
+	this->vi_attribs[2] = vk::VertexInputAttributeDescription()
+		.setLocation(2)
+		.setBinding(0)
+		.setFormat(vk::Format::eR32G32Sfloat)
+		.setOffset(24);
+
+	this->vi_attribs[3] = vk::VertexInputAttributeDescription()
+		.setLocation(3)
+		.setBinding(0)
+		.setFormat(vk::Format::eR32G32B32Sfloat)
+		.setOffset(32);
 }
 
 void pipeline_t::init_pipeline(const vk::Device &device){

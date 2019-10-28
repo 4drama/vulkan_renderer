@@ -9,6 +9,8 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
+#include<iostream>
+
 buffer_t create_buffer(const vk::Device &device,
 	const vk::PhysicalDeviceMemoryProperties &mem_prop,
 	vk::BufferUsageFlags usage_flag, vk::MemoryPropertyFlags prop_flag,
@@ -154,10 +156,19 @@ struct normal{
 	float x = 0, y = 0, z = 0;
 };
 
+struct tex_coord{
+	float u = 0, v = 0;
+};
+
 void add_normal(vertex &v, normal n){
 	v.norm_x += n.x;
 	v.norm_y += n.y;
 	v.norm_z += n.z;
+}
+
+void set_uv(vertex &vert, tex_coord t){
+	vert.u = t.u;
+	vert.v = t.v;
 }
 
 void normalize(vertex &v){
@@ -191,7 +202,7 @@ indeced_mash load_obj(std::string path){
 	indeced_mash mash;
 	for(uint32_t i = 0; i < attribs.vertices.size(); i += 3){
 		mash.verteces.emplace_back(vertex{attribs.vertices[i], attribs.vertices[i+2],
-			attribs.vertices[i+1], 1});
+			attribs.vertices[i+1]});
 	}
 
 	std::vector<normal> normals{};
@@ -200,12 +211,20 @@ indeced_mash load_obj(std::string path){
 			attribs.normals[i+1]});
 	}
 
+	std::vector<tex_coord> uvs{};
+	for(uint32_t i = 0; i < attribs.texcoords.size(); i += 2){
+		uvs.emplace_back(tex_coord{attribs.texcoords[i], attribs.texcoords[i+1]});
+	}
+
 	for(auto &shape : shapes){
 		for(auto &index : shape.mesh.indices){
 			mash.indeces.emplace_back(index.vertex_index);
 
 			if(normals.size() != 0)
 				add_normal(mash.verteces[index.vertex_index], normals[index.normal_index]);
+
+			if(uvs.size() != 0)
+				set_uv(mash.verteces[index.vertex_index], uvs[index.texcoord_index]);
 		}
 	}
 
