@@ -13,6 +13,10 @@ struct buffer_t{
 	vk::DescriptorBufferInfo info;
 };
 
+struct texture_buffer_t{
+
+};
+
 buffer_t create_buffer(const vk::Device &device,
 	const vk::PhysicalDeviceMemoryProperties &mem_prop,
 	vk::BufferUsageFlags usage_flag, vk::MemoryPropertyFlags prop_flag,
@@ -92,9 +96,22 @@ std::size_t get_mvp_buffer_size();
 void update_mvp_buffer(const camera &cam,
 	const vk::Device &device, const buffer_t &buf);
 
+struct material_t{
+	std::string diffuse_texname;
+};
+
+struct material_range_t{
+	uint32_t id;
+//	uint32_t offset;
+	uint32_t range;
+};
+
 struct indeced_mash{
 	std::vector<vertex> verteces;
 	std::vector<uint32_t> indeces;
+
+	std::vector<material_t> materials;
+	std::vector<material_range_t> materials_ranges;
 };
 
 indeced_mash load_obj(std::string path);

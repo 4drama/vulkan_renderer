@@ -7,7 +7,7 @@
 
 #include "utils.hpp"
 
-#include <iostream>
+#include <map>
 
 struct layout_f;
 
@@ -29,6 +29,13 @@ struct indeced_mash_vk{
 
 	uint32_t vertex_count;
 	uint32_t index_count;
+
+	std::map<std::string, texture_buffer_t>	textures;
+
+	std::vector<material_t> materials;
+	std::vector<material_range_t> materials_ranges;
+
+	void cmd_draw(const vk::CommandBuffer &cmd_buffer) const;
 };
 
 class pipeline_t{

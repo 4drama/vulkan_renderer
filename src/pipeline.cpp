@@ -190,6 +190,27 @@ void pipeline_t::update_camera(const vk::Device &device, camera cam){
 	update_mvp_buffer(cam, device, this->mvp_buffer);
 }
 
+void indeced_mash_vk::cmd_draw(const vk::CommandBuffer &cmd_buffer) const{
+	cmd_buffer.bindVertexBuffers(0, std::vector<vk::Buffer>{
+		this->vertex_buffer.buf}, std::vector<vk::DeviceSize>{0});
+
+	cmd_buffer.bindIndexBuffer(this->index_buffer.buf,
+		0, vk::IndexType::eUint32);
+
+	uint32_t offset = 0;
+	for(auto &m_range : this->materials_ranges){
+		// TO DO bind textures
+
+	/*	const std::string& diffuse_texname = materials[m_range.id].diffuse_texname;
+		cmd_bind_texture(cmd_buffer, this->textures[diffuse_texname]);	*/
+
+		cmd_buffer.drawIndexed(m_range.range, 1, offset, 0, 0);
+		offset += m_range.range;
+	}
+
+//	cmd_buffer.drawIndexed(this->index_count, 1, 0, 0, 0);
+}
+
 void pipeline_t::cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 	const vk::Framebuffer &frame, vk::Rect2D area) const{
 	std::array<vk::ClearValue, 2> clear_values{
@@ -211,12 +232,6 @@ void pipeline_t::cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 	cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout,
 		0, this->desc_sets, std::vector<uint32_t>());
 
-	cmd_buffer.bindVertexBuffers(0, std::vector<vk::Buffer>{
-		this->scene_buffer.vertex_buffer.buf}, std::vector<vk::DeviceSize>{0});
-
-	cmd_buffer.bindIndexBuffer(this->scene_buffer.index_buffer.buf,
-		0, vk::IndexType::eUint32);
-
 	cmd_buffer.setViewport(0, std::vector<vk::Viewport>{
 		vk::Viewport()
 		//	.setX(0)
@@ -232,9 +247,7 @@ void pipeline_t::cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 			.setExtent(vk::Extent2D(area.extent.width, area.extent.height))
 	});
 
-//	cmd_buffer.draw(this->vertex_count, 1, 0, 0);
-
-	cmd_buffer.drawIndexed(this->scene_buffer.index_count, 1, 0, 0, 0);
+	this->scene_buffer.cmd_draw(cmd_buffer);
 
 	cmd_buffer.endRenderPass();
 }
@@ -416,6 +429,11 @@ void pipeline_t::load_scene(const vk::Device &device,
 
 	this->scene_buffer.index_buffer = vertex_tmp_buffer.index_buffer.device_buffer;
 	this->scene_buffer.index_count = mash.indeces.size();
+
+	//	TO DO LOAD TEXTURES
+
+	this->scene_buffer.materials = mash.materials;
+	this->scene_buffer.materials_ranges = mash.materials_ranges;
 }
 
 void pipeline_t::init_depth_buffer(const vk::Device &device,

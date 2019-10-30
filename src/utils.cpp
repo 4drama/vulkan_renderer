@@ -183,21 +183,16 @@ glm::vec3 vertex_pos_vec(vertex &v){
 }
 
 indeced_mash load_obj(std::string path){
-	tinyobj::attrib_t attribs;
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
-	std::string warning;
-	std::string error;
-
-	if(!tinyobj::LoadObj( &attribs, &shapes, &materials,
-		&warning, &error, path.c_str())){
-
+	tinyobj::ObjReader obj{};
+	if(!obj.ParseFromFile(path)){
 		std::string msg("Could not open: " + path);
-		if( 0 < error.size() ) {
-			msg += '\n' + error;
+		if( 0 < obj.Error().size() ) {
+			msg += '\n' + obj.Error();
 		}
 		throw std::runtime_error(msg);
 	}
+
+	const tinyobj::attrib_t &attribs = obj.GetAttrib();
 
 	indeced_mash mash;
 	for(uint32_t i = 0; i < attribs.vertices.size(); i += 3){
@@ -216,7 +211,8 @@ indeced_mash load_obj(std::string path){
 		uvs.emplace_back(tex_coord{attribs.texcoords[i], attribs.texcoords[i+1]});
 	}
 
-	for(auto &shape : shapes){
+	mash.materials_ranges.emplace_back(material_range_t{0, 0});
+	for(auto &shape : obj.GetShapes()){
 		for(auto &index : shape.mesh.indices){
 			mash.indeces.emplace_back(index.vertex_index);
 
@@ -226,6 +222,22 @@ indeced_mash load_obj(std::string path){
 			if(uvs.size() != 0)
 				set_uv(mash.verteces[index.vertex_index], uvs[index.texcoord_index]);
 		}
+
+		for(uint32_t i = 0; i < shape.mesh.material_ids.size(); ++i){
+			material_range_t& last_range = mash.materials_ranges.back();
+
+			const uint32_t &id = shape.mesh.material_ids[i];
+			const uint8_t &num_face = shape.mesh.num_face_vertices[i];
+
+			if(last_range.id == id)
+				last_range.range += num_face;
+			else
+				mash.materials_ranges.emplace_back(material_range_t{id, num_face});
+		}
+	}
+
+	for(auto &mat : obj.GetMaterials()){
+		mash.materials.emplace_back(material_t{mat.diffuse_texname});
 	}
 
 	if(normals.size() == 0){
