@@ -36,6 +36,85 @@ buffer_t create_buffer(const vk::Device &device,
 	return buffer;
 }
 
+image_t create_sampled_image(const vk::Device &device, vk::Format format,
+	vk::FormatProperties format_properties, bool linear_filtering, vk::Extent3D extent,
+	uint32_t num_mipmaps, uint32_t num_layers, vk::SampleCountFlagBits samples,
+	vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect, bool is_cubemap,
+	const vk::PhysicalDeviceMemoryProperties &mem_prop, vk::MemoryPropertyFlags prop_flag){
+
+	if(!(format_properties.optimalTilingFeatures
+		& vk::FormatFeatureFlagBits::eSampledImage))
+		throw std::runtime_error
+			("Provided format is not supported for a sampled image.");
+
+	if(linear_filtering && !(format_properties.optimalTilingFeatures
+		& vk::FormatFeatureFlagBits::eSampledImageFilterLinear))
+		throw std::runtime_error
+			("Provided format is not supported for a linear image filtering.");
+
+	image_t image{};
+	image.img = device.createImage(vk::ImageCreateInfo()
+		.setFlags(is_cubemap ?
+			vk::ImageCreateFlagBits::eCubeCompatible : vk::ImageCreateFlags())
+		.setImageType(vk::ImageType::e2D)
+		.setFormat(format)
+		.setExtent(extent)
+		.setMipLevels(num_mipmaps)
+		.setArrayLayers(num_layers)
+		.setSamples(samples)
+		.setTiling(vk::ImageTiling::eOptimal)
+		.setUsage(usage | vk::ImageUsageFlagBits::eSampled)
+	/*	.setSharingMode()
+		.setQueueFamilyIndexCount()
+		.setPQueueFamilyIndices()		*/
+		.setInitialLayout(vk::ImageLayout::eUndefined)
+	);
+
+	vk::MemoryRequirements memory_requirements =
+		device.getImageMemoryRequirements(image.img);
+
+	image.mem = device.allocateMemory(vk::MemoryAllocateInfo()
+		.setAllocationSize(memory_requirements.size)
+		.setMemoryTypeIndex(
+			memory_type_from_properties(mem_prop, memory_requirements, prop_flag))
+	);
+
+	image.info = vk::DescriptorImageInfo()
+		.setSampler(device.createSampler(vk::SamplerCreateInfo()
+	/*		.setFlags()
+			.setMagFilter()
+			.setMinFilter()
+			.setMipmapMode()
+			.setAddressModeU()
+			.setAddressModeV()
+			.setAddressModeW()
+			.setMipLodBias()
+			.setAnisotropyEnable()
+			.setMaxAnisotropy()
+			.setCompareEnable()
+			.setCompareOp()
+			.setMinLod()
+			.setMaxLod()
+			.setBorderColor()
+			.setUnnormalizedCoordinates()*/))
+		.setImageView(device.createImageView(vk::ImageViewCreateInfo()
+			.setFlags(vk::ImageViewCreateFlags())
+			.setImage(image.img)
+			.setViewType(vk::ImageViewType::e2D)
+			.setFormat(format)
+			.setComponents(vk::ComponentMapping())
+			.setSubresourceRange(vk::ImageSubresourceRange()
+				.setAspectMask(aspect)
+				.setBaseMipLevel(0)
+				.setLevelCount(VK_REMAINING_MIP_LEVELS)
+				.setBaseArrayLayer(0)
+				.setLayerCount(VK_REMAINING_ARRAY_LAYERS))))
+		.setImageLayout(vk::ImageLayout::eUndefined);
+
+	device.bindImageMemory(image.img, image.mem, 0);
+	return image;
+}
+
 void destroy(const vk::Device &device, buffer_t &buf){
 	device.destroy(buf.buf);
 	device.free(buf.mem);

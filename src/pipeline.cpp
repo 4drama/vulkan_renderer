@@ -407,6 +407,14 @@ void load_to_device_memory_f(
 	device.destroy(fance);
 }
 
+std::map<std::string, image_t> load_textures_f(
+	std::vector<material_t> *materials){
+
+	for(auto &material : *materials){
+
+	}
+}
+
 }
 
 void pipeline_t::load_scene(const vk::Device &device,

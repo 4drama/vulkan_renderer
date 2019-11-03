@@ -30,7 +30,7 @@ struct indeced_mash_vk{
 	uint32_t vertex_count;
 	uint32_t index_count;
 
-	std::map<std::string, texture_buffer_t>	textures;
+	std::map<std::string, image_t>	textures;
 
 	std::vector<material_t> materials;
 	std::vector<material_range_t> materials_ranges;

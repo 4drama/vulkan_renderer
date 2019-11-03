@@ -13,14 +13,24 @@ struct buffer_t{
 	vk::DescriptorBufferInfo info;
 };
 
-struct texture_buffer_t{
-
+struct image_t{
+	vk::Image img;
+	vk::DeviceMemory mem;
+	vk::DescriptorImageInfo info;
 };
 
 buffer_t create_buffer(const vk::Device &device,
 	const vk::PhysicalDeviceMemoryProperties &mem_prop,
 	vk::BufferUsageFlags usage_flag, vk::MemoryPropertyFlags prop_flag,
 	vk::DeviceSize size);
+
+image_t create_sampled_image(const vk::Device &device, vk::Format format,
+	vk::FormatProperties format_properties, bool linear_filtering,
+	vk::Extent3D extent, uint32_t num_mipmaps, uint32_t num_layers,
+	vk::SampleCountFlagBits samples, vk::ImageUsageFlags usage,
+	vk::ImageAspectFlags aspect, bool is_cubemap,
+	const vk::PhysicalDeviceMemoryProperties &mem_prop,
+	vk::MemoryPropertyFlags prop_flag);
 
 void destroy(const vk::Device &device, buffer_t &bufs);
 
