@@ -31,7 +31,7 @@ namespace {
 
 void renderer::set_scene(indeced_mash *mash_ptr){
 	this->pipeline.load_scene(this->device, this->physical_device, this->cmd_buffer,
-		this->graphics_queue, *mash_ptr);
+		this->graphics_queue, *mash_ptr, this->format);
 }
 
 void renderer::init_window(){

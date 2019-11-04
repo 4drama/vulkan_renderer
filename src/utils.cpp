@@ -36,21 +36,24 @@ buffer_t create_buffer(const vk::Device &device,
 	return buffer;
 }
 
-image_t create_sampled_image(const vk::Device &device, vk::Format format,
+image_t create_image(const vk::Device &device, vk::Format format,
 	vk::FormatProperties format_properties, bool linear_filtering, vk::Extent3D extent,
 	uint32_t num_mipmaps, uint32_t num_layers, vk::SampleCountFlagBits samples,
-	vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect, bool is_cubemap,
-	const vk::PhysicalDeviceMemoryProperties &mem_prop, vk::MemoryPropertyFlags prop_flag){
+	vk::ImageUsageFlags usage, vk::ImageLayout layout, vk::ImageAspectFlags aspect,
+	bool is_cubemap, const vk::PhysicalDeviceMemoryProperties &mem_prop,
+	vk::MemoryPropertyFlags prop_flag){
 
-	if(!(format_properties.optimalTilingFeatures
-		& vk::FormatFeatureFlagBits::eSampledImage))
-		throw std::runtime_error
-			("Provided format is not supported for a sampled image.");
+	if(usage & vk::ImageUsageFlagBits::eSampled){
+		if(!(format_properties.optimalTilingFeatures
+			& vk::FormatFeatureFlagBits::eSampledImage))
+			throw std::runtime_error
+				("Provided format is not supported for a sampled image.");
 
-	if(linear_filtering && !(format_properties.optimalTilingFeatures
-		& vk::FormatFeatureFlagBits::eSampledImageFilterLinear))
-		throw std::runtime_error
-			("Provided format is not supported for a linear image filtering.");
+		if(linear_filtering && !(format_properties.optimalTilingFeatures
+			& vk::FormatFeatureFlagBits::eSampledImageFilterLinear))
+			throw std::runtime_error
+				("Provided format is not supported for a linear image filtering.");
+	}
 
 	image_t image{};
 	image.img = device.createImage(vk::ImageCreateInfo()
@@ -62,12 +65,13 @@ image_t create_sampled_image(const vk::Device &device, vk::Format format,
 		.setMipLevels(num_mipmaps)
 		.setArrayLayers(num_layers)
 		.setSamples(samples)
-		.setTiling(vk::ImageTiling::eOptimal)
-		.setUsage(usage | vk::ImageUsageFlagBits::eSampled)
+		.setTiling(linear_filtering ?
+			vk::ImageTiling::eLinear : vk::ImageTiling::eOptimal)
+		.setUsage(usage)
 	/*	.setSharingMode()
 		.setQueueFamilyIndexCount()
 		.setPQueueFamilyIndices()		*/
-		.setInitialLayout(vk::ImageLayout::eUndefined)
+		.setInitialLayout(layout)
 	);
 
 	vk::MemoryRequirements memory_requirements =
@@ -78,6 +82,8 @@ image_t create_sampled_image(const vk::Device &device, vk::Format format,
 		.setMemoryTypeIndex(
 			memory_type_from_properties(mem_prop, memory_requirements, prop_flag))
 	);
+
+	device.bindImageMemory(image.img, image.mem, 0);
 
 	image.info = vk::DescriptorImageInfo()
 		.setSampler(device.createSampler(vk::SamplerCreateInfo()
@@ -111,7 +117,6 @@ image_t create_sampled_image(const vk::Device &device, vk::Format format,
 				.setLayerCount(VK_REMAINING_ARRAY_LAYERS))))
 		.setImageLayout(vk::ImageLayout::eUndefined);
 
-	device.bindImageMemory(image.img, image.mem, 0);
 	return image;
 }
 
@@ -261,10 +266,10 @@ glm::vec3 vertex_pos_vec(vertex &v){
 	return glm::vec3(v.pos_x, v.pos_y, v.pos_z);
 }
 
-indeced_mash load_obj(std::string path){
+indeced_mash load_obj(std::string path, std::string filename){
 	tinyobj::ObjReader obj{};
-	if(!obj.ParseFromFile(path)){
-		std::string msg("Could not open: " + path);
+	if(!obj.ParseFromFile(path + filename)){
+		std::string msg("Could not open: " + path + filename);
 		if( 0 < obj.Error().size() ) {
 			msg += '\n' + obj.Error();
 		}
@@ -274,6 +279,7 @@ indeced_mash load_obj(std::string path){
 	const tinyobj::attrib_t &attribs = obj.GetAttrib();
 
 	indeced_mash mash;
+	mash.path = path;
 	for(uint32_t i = 0; i < attribs.vertices.size(); i += 3){
 		mash.verteces.emplace_back(vertex{attribs.vertices[i], attribs.vertices[i+2],
 			attribs.vertices[i+1]});

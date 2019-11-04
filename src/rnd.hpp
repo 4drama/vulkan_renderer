@@ -40,7 +40,7 @@ private:
 	vk::Device device;
 
 	vk::Extent2D screen_size;
-	vk::Format format;		// нужен для в randerpass
+	vk::Format format;
 	vk::SwapchainKHR swapchain;
 //	uint32_t swapchainImageCount;
 	std::vector<swapchain_buffers_type> buffers;

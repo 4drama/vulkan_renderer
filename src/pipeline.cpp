@@ -2,9 +2,13 @@
 
 #include <map>
 #include <list>
+#include <algorithm>
 
 #include <cstddef>
 #include <iostream>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 void scene_t::add_object(const mesh &obj){
 	objects.emplace_back(obj);
@@ -407,12 +411,151 @@ void load_to_device_memory_f(
 	device.destroy(fance);
 }
 
-std::map<std::string, image_t> load_textures_f(
-	std::vector<material_t> *materials){
+struct buffer_to_image_f{
+	std::string filename;
+	buffer_t buffer;
 
-	for(auto &material : *materials){
+	int width = 0;
+	int height = 0;
+};
 
+buffer_to_image_f stage_texture_f(
+	std::string path, std::string filename, vk::Device device,
+	vk::PhysicalDeviceMemoryProperties mem_prop){
+	int num_requested_components = 0;
+
+	int width = 0;
+	int height = 0;
+	int num_components = 0;
+
+	unsigned char *stbi_data_ptr = stbi_load( std::string(path + filename).c_str(),
+		&width, &height, &num_components, num_requested_components);
+
+	if( (!stbi_data_ptr) || (0 >= width) || (0 >= height) || (0 >= num_components) )
+		throw std::runtime_error("Could not read image!");
+
+	int data_size = width * height *
+		(0 < num_requested_components ? num_requested_components : num_components);
+
+	buffer_to_image_f result{};
+	result.filename = filename;
+	result.buffer = create_buffer(device, mem_prop, vk::BufferUsageFlagBits::eTransferSrc,
+		vk::MemoryPropertyFlagBits::eHostVisible |
+		vk::MemoryPropertyFlagBits::eHostCoherent, data_size);
+	result.width = width;
+	result.height = height;
+
+	void *data_ptr = device.mapMemory(result.buffer.mem, result.buffer.info.offset,
+		result.buffer.info.range, vk::MemoryMapFlags());
+
+	memcpy(data_ptr, stbi_data_ptr, data_size);
+
+	device.unmapMemory(result.buffer.mem);
+	stbi_image_free( stbi_data_ptr );
+	return result;
+}
+
+void cmd_load_to_device_image_f(vk::CommandBuffer cmd_buffer,
+	buffer_to_image_f host_buffer, image_t device_image){
+
+	cmd_buffer.copyBufferToImage(host_buffer.buffer.buf, device_image.img,
+		vk::ImageLayout::eTransferDstOptimal, std::array<vk::BufferImageCopy, 1>{
+		vk::BufferImageCopy()
+		/*	.setBufferOffset(0)
+			.setBufferRowLength(0)
+			.setBufferImageHeight(0)*/
+			.setImageSubresource(vk::ImageSubresourceLayers()
+				.setAspectMask(vk::ImageAspectFlagBits::eColor)
+				.setMipLevel(0)
+				.setBaseArrayLayer(0)
+				.setLayerCount(1))
+			.setImageOffset(vk::Offset3D(0, 0, 0))
+			.setImageExtent(vk::Extent3D(host_buffer.width, host_buffer.height, 1))
+		});
+}
+
+void load_to_device_memory_f(
+	vk::Device device, vk::CommandBuffer cmd_buffer, vk::Queue queue,
+	std::map<std::string, image_t> *device_images_ptr,
+	std::vector<buffer_to_image_f> *host_buffers_ptr){
+
+	cmd_buffer.begin(vk::CommandBufferBeginInfo(
+		vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+
+	for(auto &host_buffer: *host_buffers_ptr){
+		cmd_load_to_device_image_f(cmd_buffer, host_buffer,
+			device_images_ptr->at(host_buffer.filename));
 	}
+
+	cmd_buffer.end();
+
+	vk::Fence fance = device.createFence(vk::FenceCreateInfo());
+	vk::PipelineStageFlags pipe_stage_flags = vk::PipelineStageFlagBits::eBottomOfPipe;
+	queue.submit(std::array<vk::SubmitInfo, 1>{
+		vk::SubmitInfo()
+			.setWaitSemaphoreCount(0)
+			.setPWaitSemaphores(nullptr)
+			.setPWaitDstStageMask(&pipe_stage_flags)
+			.setCommandBufferCount(1)
+			.setPCommandBuffers(&cmd_buffer)
+			.setSignalSemaphoreCount(0)
+			.setPSignalSemaphores(nullptr)
+	}, fance);
+
+	while(device.waitForFences(fance, true, 10000000) != vk::Result::eSuccess);
+
+	device.destroy(fance);
+}
+
+std::map<std::string, image_t> load_textures_f(vk::PhysicalDevice physical_device,
+	vk::Device device, std::string path, const std::vector<material_t> *materials,
+	vk::Format format, vk::CommandBuffer cmd_buffer, vk::Queue queue){
+
+	const vk::FormatProperties format_properties =
+		physical_device.getFormatProperties(format);
+	const vk::PhysicalDeviceMemoryProperties memory_properties =
+		physical_device.getMemoryProperties();
+
+	std::vector<std::string> textures_names{};
+	for(auto &mat : *materials){
+		if(mat.diffuse_texname.size() != 0){
+			textures_names.emplace_back(mat.diffuse_texname);
+		}
+	}
+
+	std::sort(textures_names.begin(), textures_names.end());
+	auto last_iter = std::unique(textures_names.begin(), textures_names.end());
+	textures_names.erase(last_iter, textures_names.end());
+
+	std::vector<buffer_to_image_f> stage_buffers{};
+	stage_buffers.reserve(textures_names.size());
+	for(auto &name : textures_names){
+		stage_buffers.emplace_back(stage_texture_f(path, name, device, memory_properties));
+	}
+
+	std::map<std::string, image_t> device_local_textures{};
+	for(auto &stage_buffer : stage_buffers){
+		device_local_textures[stage_buffer.filename] = create_image(device, format,
+			format_properties, false,
+			vk::Extent3D(stage_buffer.width, stage_buffer.height, 1), 1, 1,
+			vk::SampleCountFlagBits::e1,
+			vk::ImageUsageFlagBits::eColorAttachment |
+			vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+			vk::ImageLayout::eTransferDstOptimal,
+			vk::ImageAspectFlagBits::eColor, false, memory_properties,
+			vk::MemoryPropertyFlagBits::eDeviceLocal);;
+	}
+
+	load_to_device_memory_f(device, cmd_buffer, queue,
+		&device_local_textures, &stage_buffers);
+
+	for(auto &stage_buffer : stage_buffers){
+		stage_buffer.filename.clear();
+		destroy(device, stage_buffer.buffer);
+		stage_buffer.width = 0;
+		stage_buffer.height = 0;
+	}
+	return device_local_textures;
 }
 
 }
@@ -420,7 +563,7 @@ std::map<std::string, image_t> load_textures_f(
 void pipeline_t::load_scene(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device,
 	const vk::CommandBuffer &cmd_buffer, const vk::Queue &queue,
-	const indeced_mash &mash){
+	const indeced_mash &mash, vk::Format format){
 
 	stage_vertex_buffer_f vertex_tmp_buffer = create_vertex_stage_buffer_f(device,
 		physical_device, mash);
@@ -438,7 +581,8 @@ void pipeline_t::load_scene(const vk::Device &device,
 	this->scene_buffer.index_buffer = vertex_tmp_buffer.index_buffer.device_buffer;
 	this->scene_buffer.index_count = mash.indeces.size();
 
-	//	TO DO LOAD TEXTURES
+	this->scene_buffer.textures = load_textures_f(physical_device, device,
+		mash.path, &mash.materials, format, cmd_buffer, queue);
 
 	this->scene_buffer.materials = mash.materials;
 	this->scene_buffer.materials_ranges = mash.materials_ranges;

@@ -5,6 +5,7 @@ VK_LIB= -LC:\libraries\VulkanSDK\$(VK_VERSION)\Lib
 
 GLM_INCLUDE= -IE:\libraries\glm
 TINY_OBJ_INCLUDE= -IE:\libraries\tinyobjloader
+STB_IMAGE_INCLUDE= -IE:\libraries\stb
 
 VK_LINK_FLAG= -lvulkan-1
 CPP_LINK_FLAG= -lstdc++ -g
@@ -15,7 +16,8 @@ ALL: cclean
 	gcc -c $(VK_INCLUDE) -std=c++17 ./src/rnd.cpp -o ./obj/rnd.o
 	gcc -c $(VK_INCLUDE) $(GLM_INCLUDE) $(TINY_OBJ_INCLUDE) \
 		-std=c++17 ./src/utils.cpp -o ./obj/utils.o
-	gcc -c $(VK_INCLUDE) -std=c++17 ./src/pipeline.cpp -o ./obj/pipeline.o
+	gcc -c $(VK_INCLUDE) $(STB_IMAGE_INCLUDE) \
+		-std=c++17 ./src/pipeline.cpp -o ./obj/pipeline.o
 	gcc -c $(VK_INCLUDE) -std=c++17 ./src/test.cpp -o ./obj/test.o
 
 	glslangValidator -V -o ./shaders/vert_shader.spv ./src/shader.vert

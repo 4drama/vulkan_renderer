@@ -47,7 +47,7 @@ public:
 	void load_scene(const vk::Device &device,
 		const vk::PhysicalDevice &physical_device,
 		const vk::CommandBuffer &cmd_buffer, const vk::Queue &queue,
-		const indeced_mash &mash);
+		const indeced_mash &mash, vk::Format format);
 
 	void init_depth_buffer(const vk::Device &device,
 		const vk::PhysicalDevice &physical_device, vk::Extent2D window_size);

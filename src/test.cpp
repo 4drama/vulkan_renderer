@@ -54,7 +54,7 @@ void main_loop(renderer &rnd){
 
 int main() try {
 //	indeced_mash mash = load_obj("./data/box.obj");
-	indeced_mash mash = load_obj("./data/challenger/CHALLENGER71.obj");
+	indeced_mash mash = load_obj("./data/challenger/", "CHALLENGER71.obj");
 
 	renderer r2{};
 	r2.set_scene(&mash);
