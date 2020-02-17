@@ -106,8 +106,12 @@ std::size_t get_mvp_buffer_size();
 void update_mvp_buffer(const camera &cam,
 	const vk::Device &device, const buffer_t &buf);
 
+/*void update_texture_index_buffer(int value,
+	const vk::Device &device, const buffer_t &buf);*/
+
 struct material_t{
 	std::string diffuse_texname;
+	vk::DescriptorSet desc;
 };
 
 struct material_range_t{

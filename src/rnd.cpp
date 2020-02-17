@@ -32,11 +32,13 @@ namespace {
 void renderer::set_scene(indeced_mash *mash_ptr){
 	this->pipeline.load_scene(this->device, this->physical_device, this->cmd_buffer,
 		this->graphics_queue, *mash_ptr, this->format);
+
+	this->pipeline.init_graphic_pipeline(this->device, this->physical_device);
 }
 
 void renderer::init_window(){
-	uint32_t width = 800;
-	uint32_t height = 600;
+	uint32_t width = 1280;
+	uint32_t height = 1024;
 
 	this->hInstance = GetModuleHandleA(NULL);
 
@@ -515,9 +517,12 @@ namespace {
 }
 
 void renderer::init_swapchain(){
+	vk::SurfaceFormatKHR desired_format;
+	desired_format.format = vk::Format::eR8G8B8A8Unorm;
+	desired_format.colorSpace = vk::ColorSpaceKHR::eSrgbNonlinear;
+
 	vk::SurfaceFormatKHR formatKHR = get_surface_format_f(
-		this->physical_device, this->surface,
-		{vk::Format::eR8G8B8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear});
+		this->physical_device, this->surface, desired_format);
 
 	const vk::SurfaceCapabilitiesKHR surface_capabilities =
 		this->physical_device.getSurfaceCapabilitiesKHR(this->surface);
@@ -622,7 +627,8 @@ renderer::renderer(){
 
 	this->init_swapchain();
 	this->init_framebuffers();
-	this->pipeline.init_graphic_pipeline(this->device, this->physical_device);
+//	this->pipeline.init_graphic_pipeline(this->device, this->physical_device);
+// 		remove in set scene
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam){
@@ -690,8 +696,8 @@ void renderer::draw(){
 		);
 	}
 
-	pipeline.cmd_fill_render_pass(cmd_buffer, this->framebuffers[current_frame],
-		vk::Rect2D(vk::Offset2D(0, 0), screen_size));
+	pipeline.cmd_fill_render_pass(this->device, cmd_buffer,
+		this->framebuffers[current_frame], vk::Rect2D(vk::Offset2D(0, 0), screen_size));
 
 	if(this->graphics_queue_family_index != present_queue_family_index){
 		vk::PipelineStageFlags generating_stages =

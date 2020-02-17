@@ -87,22 +87,29 @@ image_t create_image(const vk::Device &device, vk::Format format,
 
 	image.info = vk::DescriptorImageInfo()
 		.setSampler(device.createSampler(vk::SamplerCreateInfo()
-	/*		.setFlags()
-			.setMagFilter()
-			.setMinFilter()
-			.setMipmapMode()
-			.setAddressModeU()
-			.setAddressModeV()
-			.setAddressModeW()
-			.setMipLodBias()
-			.setAnisotropyEnable()
-			.setMaxAnisotropy()
-			.setCompareEnable()
-			.setCompareOp()
-			.setMinLod()
-			.setMaxLod()
-			.setBorderColor()
-			.setUnnormalizedCoordinates()*/))
+			.setFlags(vk::SamplerCreateFlags())
+			.setMagFilter(vk::Filter::eLinear)
+			.setMinFilter(vk::Filter::eLinear)
+			.setMipmapMode(vk::SamplerMipmapMode::eLinear)
+
+			.setAddressModeU(vk::SamplerAddressMode::eRepeat)
+			.setAddressModeV(vk::SamplerAddressMode::eRepeat)
+			.setAddressModeW(vk::SamplerAddressMode::eRepeat)
+
+			.setMipLodBias(1)
+
+			.setAnisotropyEnable(true)
+			.setMaxAnisotropy(2)
+
+			.setCompareEnable(true)
+			.setCompareOp(vk::CompareOp::eLess)
+
+			.setMinLod(1)
+			.setMaxLod(1)
+
+			.setBorderColor(vk::BorderColor::eFloatTransparentBlack)
+			.setUnnormalizedCoordinates(false)))
+
 		.setImageView(device.createImageView(vk::ImageViewCreateInfo()
 			.setFlags(vk::ImageViewCreateFlags())
 			.setImage(image.img)
@@ -115,7 +122,7 @@ image_t create_image(const vk::Device &device, vk::Format format,
 				.setLevelCount(VK_REMAINING_MIP_LEVELS)
 				.setBaseArrayLayer(0)
 				.setLayerCount(VK_REMAINING_ARRAY_LAYERS))))
-		.setImageLayout(vk::ImageLayout::eUndefined);
+		.setImageLayout(layout);
 
 	return image;
 }
@@ -217,7 +224,7 @@ void update_mvp_buffer(const camera &cam,
 	static float angle = 0.0f;
 	glm::mat4 Model = glm::rotate(glm::mat4(1.0f), glm::radians(angle),
 		glm::vec3(0.0f, 1.0f, 0.0f));
-	angle += 1.0f;
+	angle += 0.5f;
 	// Vulkan clip space has inverted Y and half Z.
 	glm::mat4 Clip = glm::mat4(
 		1.0f,  0.0f, 0.0f, 0.0f,
@@ -235,6 +242,14 @@ void update_mvp_buffer(const camera &cam,
 	memcpy(data_ptr + sizeof(glm::mat4), &mv, sizeof(glm::mat4));
     device.unmapMemory(buf.mem);
 }
+
+/*void update_texture_index_buffer(int value, const vk::Device &device, const buffer_t &buf){
+	void *data_ptr = device.mapMemory(buf.mem, 0, buf.info.range, vk::MemoryMapFlags());
+	memcpy(data_ptr, &value, sizeof(int));
+    device.unmapMemory(buf.mem);*/
+/*	device.flushMappedMemoryRanges(std::vector<vk::MappedMemoryRange>{
+		vk::MappedMemoryRange().setMemory(buf.mem).setSize(buf.info.range)});*/
+//}
 
 struct normal{
 	float x = 0, y = 0, z = 0;

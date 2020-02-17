@@ -194,7 +194,10 @@ void pipeline_t::update_camera(const vk::Device &device, camera cam){
 	update_mvp_buffer(cam, device, this->mvp_buffer);
 }
 
-void indeced_mash_vk::cmd_draw(const vk::CommandBuffer &cmd_buffer) const{
+void indeced_mash_vk::cmd_draw(vk::Device device, const pipeline_t *pipeline_ptr,
+	const vk::CommandBuffer &cmd_buffer, const vk::PipelineLayout &pipeline_layout,
+	const std::vector<vk::DescriptorSet> &desc_sets) const{
+
 	cmd_buffer.bindVertexBuffers(0, std::vector<vk::Buffer>{
 		this->vertex_buffer.buf}, std::vector<vk::DeviceSize>{0});
 
@@ -203,20 +206,33 @@ void indeced_mash_vk::cmd_draw(const vk::CommandBuffer &cmd_buffer) const{
 
 	uint32_t offset = 0;
 	for(auto &m_range : this->materials_ranges){
-		// TO DO bind textures
+		const std::string& diffuse_texname = materials[m_range.id].diffuse_texname;
+		std::vector<vk::DescriptorSet> upd_desc_set = desc_sets;
 
-	/*	const std::string& diffuse_texname = materials[m_range.id].diffuse_texname;
-		cmd_bind_texture(cmd_buffer, this->textures[diffuse_texname]);	*/
+		if(!diffuse_texname.empty()){
+			upd_desc_set.emplace_back(materials[m_range.id].desc);
+			pipeline_ptr->update_texture(cmd_buffer, m_range.id);
+		} else {
+			upd_desc_set.emplace_back(materials[0].desc);
+			pipeline_ptr->update_texture(cmd_buffer, -1);
+		}
+
+		cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+			pipeline_layout, 0, upd_desc_set, std::vector<uint32_t>());
 
 		cmd_buffer.drawIndexed(m_range.range, 1, offset, 0, 0);
 		offset += m_range.range;
 	}
-
-//	cmd_buffer.drawIndexed(this->index_count, 1, 0, 0, 0);
 }
 
-void pipeline_t::cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
-	const vk::Framebuffer &frame, vk::Rect2D area) const{
+
+void pipeline_t::update_texture(const vk::CommandBuffer &cmd_buffer, int value) const{
+	cmd_buffer.fillBuffer(this->texture_index_buffer.buf, 0, sizeof(int), (uint32_t)value);
+}
+
+void pipeline_t::cmd_fill_render_pass(vk::Device device,
+	const vk::CommandBuffer &cmd_buffer, const vk::Framebuffer &frame,
+	vk::Rect2D area) const{
 	std::array<vk::ClearValue, 2> clear_values{
 		vk::ClearValue().setColor(
 			vk::ClearColorValue(std::array<float,4>{0.2f, 0.2f, 0.2f, 0.2f})),
@@ -233,8 +249,13 @@ void pipeline_t::cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 	);
 
 	cmd_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, this->pipeline);
-	cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout,
-		0, this->desc_sets, std::vector<uint32_t>());
+
+	std::vector<vk::DescriptorSet> desc_sets(this->vertex_descriptor.sets); //to del
+	desc_sets.insert(desc_sets.cend(),
+		this->fragment_descriptor.sets.begin(), this->fragment_descriptor.sets.end());
+
+/*	cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout,
+		0, desc_sets, std::vector<uint32_t>());*/
 
 	cmd_buffer.setViewport(0, std::vector<vk::Viewport>{
 		vk::Viewport()
@@ -251,7 +272,8 @@ void pipeline_t::cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
 			.setExtent(vk::Extent2D(area.extent.width, area.extent.height))
 	});
 
-	this->scene_buffer.cmd_draw(cmd_buffer);
+	this->scene_buffer.cmd_draw(device, this, cmd_buffer,
+		this->pipeline_layout, desc_sets);
 
 	cmd_buffer.endRenderPass();
 }
@@ -651,11 +673,11 @@ vk::PipelineCache create_pipeline_cache_f(const vk::Device &device){
 
 namespace{
 
-buffer_t create_mvp_buffer(const vk::Device &device,
-	const vk::PhysicalDevice &physical_device){
+buffer_t create_buffer_f(const vk::Device &device,
+	const vk::PhysicalDevice &physical_device, std::size_t size){
 	buffer_t buf;
 	buf.buf = device.createBuffer(vk::BufferCreateInfo()
-		.setSize(get_mvp_buffer_size())
+		.setSize(size)
 		.setUsage(vk::BufferUsageFlagBits::eUniformBuffer));
 
 	vk::MemoryRequirements mem_req = device.getBufferMemoryRequirements(buf.buf);
@@ -679,29 +701,109 @@ buffer_t create_mvp_buffer(const vk::Device &device,
 
 void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device){
-	this->mvp_buffer = create_mvp_buffer(device, physical_device);
-//	update_mvp_buffer(camera(), device, this->mvp_buffer);
+	this->mvp_buffer = create_buffer_f(device, physical_device, get_mvp_buffer_size());
+	this->texture_index_buffer = create_buffer_f(device, physical_device, sizeof(int));
 
-	const std::vector<layout_f> layouts{
-		layout_f{
-			vk::DescriptorSetLayoutBinding()
-				.setBinding(0)
-				.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-				.setDescriptorCount(1)
-				.setStageFlags(vk::ShaderStageFlagBits::eVertex)
-				.setPImmutableSamplers(nullptr),
-			nullptr,
-			&this->mvp_buffer.info,
-			nullptr
+	std::vector<vk::DescriptorImageInfo> image_infos{};
+	std::vector<vk::Sampler> samplers{};
+	for(auto &tex : this->scene_buffer.textures){
+		image_infos.emplace_back(tex.second.info);
+		samplers.emplace_back(tex.second.info.sampler);
+	}
+
+	this->vertex_descriptor = descriptor_t(
+		device,
+		std::vector<layout_f>{
+			{
+				vk::DescriptorSetLayoutBinding()
+					.setBinding(0)
+					.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+					.setDescriptorCount(1)
+					.setStageFlags(vk::ShaderStageFlagBits::eVertex)
+					.setPImmutableSamplers(nullptr),
+				nullptr,
+				&this->mvp_buffer.info,
+				nullptr
+			}
 		}
-	};
-	this->add_descriptor_set_layout(device, layouts);
-	this->init_const_range();
+	);
 
+	this->fragment_descriptor = descriptor_t(
+		device,
+		std::vector<layout_f>{
+			{
+				vk::DescriptorSetLayoutBinding()
+					.setBinding(2)
+					.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+					.setDescriptorCount(1)
+					.setStageFlags(vk::ShaderStageFlagBits::eFragment)
+					.setPImmutableSamplers(nullptr),
+				nullptr,
+				&this->texture_index_buffer.info,
+				nullptr
+			}
+		}
+	);
+
+	auto vert_size = this->vertex_descriptor.get_size();
+	auto frag_size = this->fragment_descriptor.get_size();
+
+	std::vector<vk::DescriptorSetLayoutBinding> texture_layout_binding = {
+		vk::DescriptorSetLayoutBinding()
+			.setBinding(0)
+			.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+			.setDescriptorCount(1)
+			.setStageFlags(vk::ShaderStageFlagBits::eFragment)
+			.setPImmutableSamplers(nullptr)
+	};
+
+	this->texture_layout = device.createDescriptorSetLayout(
+		vk::DescriptorSetLayoutCreateInfo()
+			.setBindingCount(texture_layout_binding.size())
+			.setPBindings(texture_layout_binding.data()));
+
+	uint32_t textures_counter = 0;
+	for(auto &material : this->scene_buffer.materials){
+		if(!material.diffuse_texname.empty()){
+			++textures_counter;
+		}
+	}
+
+	auto texture_size = pool_size_t();
+	texture_size.add(texture_layout_binding[0].descriptorType, textures_counter);
+
+	this->desc_pool = create_descriptor_pool(device, vert_size + frag_size + texture_size);
+
+	std::vector<vk::WriteDescriptorSet> writes{};
+	for(auto &material : this->scene_buffer.materials){
+		if(!material.diffuse_texname.empty()){
+			auto tmp_desc_sets = device.allocateDescriptorSets(
+				vk::DescriptorSetAllocateInfo()
+					.setDescriptorPool(this->desc_pool)
+					.setDescriptorSetCount(1)
+					.setPSetLayouts(&this->texture_layout));
+
+			material.desc = *tmp_desc_sets.begin();
+			writes.emplace_back(
+				vk::WriteDescriptorSet()
+					.setDstSet(material.desc)
+					.setDstBinding(texture_layout_binding[0].binding)
+					.setDescriptorCount(texture_layout_binding[0].descriptorCount)
+					.setDescriptorType(texture_layout_binding[0].descriptorType)
+					.setPImageInfo(&this->scene_buffer.textures[material.diffuse_texname].info));
+		}
+	}
+
+	device.updateDescriptorSets(writes, std::vector<vk::CopyDescriptorSet>{});
+
+	this->vertex_descriptor.allocate_set(device, desc_pool);
+	this->vertex_descriptor.update(device);
+
+	this->fragment_descriptor.allocate_set(device, desc_pool);
+	this->fragment_descriptor.update(device);
+
+	this->init_const_range();
 	this->init_pipeline_layouts(device);
-	this->init_descriptor_pool(device, layouts);
-	this->init_descriptor_sets(device/*, layouts*/);
-	this->update_descriptor_sets(device, layouts);
 
 	this->shader_stages[0] = load_shader_f(device,
 		"./shaders/vert_shader.spv", vk::ShaderStageFlagBits::eVertex);
@@ -794,23 +896,11 @@ std::vector<vk::Framebuffer> pipeline_t::create_framebuffers(const vk::Device &d
 	return framebuffers;
 }
 
-void pipeline_t::add_descriptor_set_layout(const vk::Device &device,
-	const std::vector<layout_f> &layouts){
+namespace{
 
-	if(layouts.size() != 0){
-		std::vector<vk::DescriptorSetLayoutBinding> layout_bindings;
-		for(auto &layout : layouts){
-			layout_bindings.emplace_back(layout.descriptor_set_binding);
-		}
+std::vector<vk::DescriptorPoolSize> get_pool_size_f(
+	const std::vector<layout_f> &layouts);
 
-		const vk::DescriptorSetLayoutCreateInfo desc_set_layout_info
-			= vk::DescriptorSetLayoutCreateInfo()
-			.setBindingCount(layout_bindings.size())
-			.setPBindings(layout_bindings.data());
-
-		this->desc_set_layout.emplace_back(
-			device.createDescriptorSetLayout(desc_set_layout_info));
-	}
 }
 
 void pipeline_t::init_const_range(){
@@ -818,10 +908,16 @@ void pipeline_t::init_const_range(){
 }
 
 void pipeline_t::init_pipeline_layouts(const vk::Device &device){
+	std::vector<vk::DescriptorSetLayout> desc_set_layout{
+		vertex_descriptor.layout, fragment_descriptor.layout, texture_layout
+	};
+/*	desc_set_layout.insert(desc_set_layout.begin(),
+		texture_layouts.begin(), texture_layouts.end());*/
+
 	const vk::PipelineLayoutCreateInfo pipeline_layout_info =
 		vk::PipelineLayoutCreateInfo()
-		.setSetLayoutCount(this->desc_set_layout.size())
-		.setPSetLayouts(this->desc_set_layout.data())
+		.setSetLayoutCount(desc_set_layout.size())
+		.setPSetLayouts(desc_set_layout.data())
 		.setPushConstantRangeCount(this->const_range.size())
 		.setPPushConstantRanges(this->const_range.data());
 
@@ -858,47 +954,4 @@ std::vector<vk::DescriptorPoolSize> get_pool_size_f(
 	return pool_size;
 }
 
-}
-
-void pipeline_t::init_descriptor_pool(const vk::Device &device,
-	const std::vector<layout_f> &layouts){
-
-	std::vector<vk::DescriptorPoolSize> type_count
-		= get_pool_size_f(layouts);
-
-	const vk::DescriptorPoolCreateInfo descriptor_pool_info =
-		vk::DescriptorPoolCreateInfo()	// or desc_sey lay. size? get_descriptor_sets_count_f(layout_bindings)
-		.setMaxSets(this->desc_set_layout.size())
-		.setPoolSizeCount(type_count.size())
-		.setPPoolSizes(type_count.data());
-
-	this->desc_pool = device.createDescriptorPool(descriptor_pool_info);
-}
-
-void pipeline_t::init_descriptor_sets(const vk::Device &device
-/*	, const std::vector<layout_f> &layout*/){
-	const vk::DescriptorSetAllocateInfo desc_sets_info =
-		vk::DescriptorSetAllocateInfo()
-		.setDescriptorPool(this->desc_pool)	 // or desc_sey lay. size? get_descriptor_sets_count_f(layout_bindings)
-		.setDescriptorSetCount(this->desc_set_layout.size())
-		.setPSetLayouts(this->desc_set_layout.data());
-	this->desc_sets = device.allocateDescriptorSets(desc_sets_info);
-}
-
-
-void pipeline_t::update_descriptor_sets(const vk::Device &device,
-	const std::vector<layout_f> &layouts){
-	const uint32_t size = this->desc_sets.size();
-	std::vector<vk::WriteDescriptorSet> writes(size);
-	for(uint32_t i = 0 ; i < size; ++i){
-		writes[i] = vk::WriteDescriptorSet()
-			.setDstSet(this->desc_sets[i])
-			.setDstBinding(layouts[i].descriptor_set_binding.binding)
-			.setDescriptorCount(layouts[i].descriptor_set_binding.descriptorCount)
-			.setDescriptorType(layouts[i].descriptor_set_binding.descriptorType)
-			.setPImageInfo(layouts[i].pImageInfo_)
-			.setPBufferInfo(layouts[i].pBufferInfo_)
-			.setPTexelBufferView(layouts[i].pTexelBufferView_);
-	}
-	device.updateDescriptorSets(writes, std::vector<vk::CopyDescriptorSet>{});
 }

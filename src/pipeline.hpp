@@ -6,10 +6,12 @@
 #include "windows.h"
 
 #include "utils.hpp"
+#include "desc_sets.hpp"
 
 #include <map>
 
-struct layout_f;
+//struct layout_f;
+class pipeline_t;
 
 struct mesh{
 	std::vector<polygon> polygons;
@@ -35,13 +37,16 @@ struct indeced_mash_vk{
 	std::vector<material_t> materials;
 	std::vector<material_range_t> materials_ranges;
 
-	void cmd_draw(const vk::CommandBuffer &cmd_buffer) const;
+	void cmd_draw(vk::Device device, const pipeline_t *pipeline_ptr,
+		const vk::CommandBuffer &cmd_buffer,
+		const vk::PipelineLayout &pipeline_layout,
+		const std::vector<vk::DescriptorSet> &desc_sets) const;
 };
 
 class pipeline_t{
 public:
 	void update_camera(const vk::Device &device, camera cam);
-	void cmd_fill_render_pass(const vk::CommandBuffer &cmd_buffer,
+	void cmd_fill_render_pass(vk::Device device, const vk::CommandBuffer &cmd_buffer,
 		const vk::Framebuffer &frame, vk::Rect2D area) const;
 
 	void load_scene(const vk::Device &device,
@@ -61,6 +66,10 @@ public:
 		const std::vector<swapchain_buffers_type> &buffers,
 		vk::Extent2D window_size,
 		const vk::Format &format);
+
+//	void update_texture(vk::Device device, const vk::DescriptorImageInfo* pImageInfo) const;
+//	void update_texture(vk::Device device, int index) const;
+	void update_texture(const vk::CommandBuffer &cmd_buffer, int value) const;
 private:
 	static constexpr vk::SampleCountFlagBits num_samples
 		= vk::SampleCountFlagBits::e1;
@@ -75,13 +84,19 @@ private:
 
 	std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages;
 
-	std::vector<vk::DescriptorSetLayout> desc_set_layout;
+//	std::vector<vk::DescriptorSetLayout> desc_set_layout;	// init_pipeline_layouts, to del
+//	std::vector<vk::DescriptorSet> desc_sets;	//	bindDescriptorSets, to del
+
+	descriptor_t vertex_descriptor;
+	mutable descriptor_t fragment_descriptor;
+	vk::DescriptorSetLayout texture_layout;
+//	std::vector<vk::DescriptorSetLayout> texture_layouts;
+
 	std::vector<vk::PushConstantRange> const_range;
 
-	vk::PipelineLayout pipeline_layout;
+	vk::PipelineLayout pipeline_layout;	// to del ???
 
 	vk::DescriptorPool desc_pool;
-	std::vector<vk::DescriptorSet> desc_sets;
 
 	vk::PipelineCache pipeline_cache;
 	vk::Pipeline pipeline;
@@ -93,16 +108,18 @@ private:
 	std::array<vk::VertexInputAttributeDescription, 4> vi_attribs;
 
 	buffer_t mvp_buffer;
+	buffer_t texture_index_buffer;
 
-	void add_descriptor_set_layout(const vk::Device &device,
-		const std::vector<layout_f> &layouts);
+	std::vector<vk::DescriptorPoolSize> add_descriptor_set_layout(
+		const vk::Device &device, const std::vector<layout_f> &layouts);
 	void init_const_range();
 
 	void init_pipeline_layouts(const vk::Device &device);
 	void init_descriptor_pool(const vk::Device &device,
-		const std::vector<layout_f> &layouts);
+		const std::vector<vk::DescriptorPoolSize> &type_count);
 
-	void init_descriptor_sets(const vk::Device &device);
+	void init_descriptor_sets(const vk::Device &device,
+		const std::vector<layout_f> &layouts);
 
 	void update_descriptor_sets(const vk::Device &device,
 		const std::vector<layout_f> &layouts);
@@ -116,11 +133,11 @@ private:
 //	void destroy_vertex_buffer(const vk::Device &device);
 };
 
-struct layout_f{
+/*struct layout_f{
 	vk::DescriptorSetLayoutBinding descriptor_set_binding;
 	const vk::DescriptorImageInfo* pImageInfo_ = nullptr;
 	const vk::DescriptorBufferInfo* pBufferInfo_ = nullptr;
 	const vk::BufferView* pTexelBufferView_ = nullptr;
-};
+};*/
 
 #endif

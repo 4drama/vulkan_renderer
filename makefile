@@ -1,11 +1,11 @@
 
-VK_VERSION= 1.1.114.0
-VK_INCLUDE= -IC:\libraries\VulkanSDK\$(VK_VERSION)\Include
-VK_LIB= -LC:\libraries\VulkanSDK\$(VK_VERSION)\Lib
+VK_VERSION= 1.2.131.2
+VK_INCLUDE= -IC:\VulkanSDK\$(VK_VERSION)\Include
+VK_LIB= -LC:\VulkanSDK\$(VK_VERSION)\Lib
 
-GLM_INCLUDE= -IE:\libraries\glm
-TINY_OBJ_INCLUDE= -IE:\libraries\tinyobjloader
-STB_IMAGE_INCLUDE= -IE:\libraries\stb
+GLM_INCLUDE= -IG:\libraries\glm
+TINY_OBJ_INCLUDE= -IG:\libraries\tinyobjloader
+STB_IMAGE_INCLUDE= -IG:\libraries\stb
 
 VK_LINK_FLAG= -lvulkan-1
 CPP_LINK_FLAG= -lstdc++ -g
@@ -18,16 +18,18 @@ ALL: cclean
 		-std=c++17 ./src/utils.cpp -o ./obj/utils.o
 	gcc -c $(VK_INCLUDE) $(STB_IMAGE_INCLUDE) \
 		-std=c++17 ./src/pipeline.cpp -o ./obj/pipeline.o
-	gcc -c $(VK_INCLUDE) -std=c++17 ./src/test.cpp -o ./obj/test.o
+	gcc -c $(VK_INCLUDE) -std=c++17 ./src/rnd.cpp -o ./obj/rnd.o
+
+	gcc -c $(VK_INCLUDE) -std=c++17 ./src/desc_sets.cpp -o ./obj/desc_sets.o
 
 	glslangValidator -V -o ./shaders/vert_shader.spv ./src/shader.vert
 	glslangValidator -V -o ./shaders/frag_shader.spv ./src/shader.frag
 
 	gcc $(VK_LIB) ./obj/rnd.o ./obj/test.o ./obj/pipeline.o ./obj/utils.o \
-		-o test.exe $(VK_LINK_FLAG) $(CPP_LINK_FLAG)
+		./obj/desc_sets.o -o test.exe $(VK_LINK_FLAG) $(CPP_LINK_FLAG)
 
 print_dump:
-	setx VK_INSTANCE_LAYERS VK_LAYER_LUNARG_api_dump;VK_LAYER_LUNARG_core_validation
+	setx VK_INSTANCE_LAYERS VK_LAYER_LUNARG_api_dump VK_LAYER_LUNARG_core_validation
 
 p1:
 	setx VK_INSTANCE_LAYERS VK_LAYER_LUNARG_core_validation
