@@ -337,7 +337,7 @@ indeced_mash load_obj(std::string path, std::string filename){
 	}
 
 	for(auto &mat : obj.GetMaterials()){
-		mash.materials.emplace_back(material_t{mat.diffuse_texname});
+		mash.materials.emplace_back(material_t{mat.diffuse_texname, mat.dissolve});
 	}
 
 	if(normals.size() == 0){

@@ -206,21 +206,23 @@ void indeced_mash_vk::cmd_draw(vk::Device device, const pipeline_t *pipeline_ptr
 
 	uint32_t offset = 0;
 	for(auto &m_range : this->materials_ranges){
-		const std::string& diffuse_texname = materials[m_range.id].diffuse_texname;
-		std::vector<vk::DescriptorSet> upd_desc_set = desc_sets;
+		const material_t& material = materials[m_range.id];
+		if(material.dissolve == 1){
+			std::vector<vk::DescriptorSet> upd_desc_set = desc_sets;
 
-		if(!diffuse_texname.empty()){
-			upd_desc_set.emplace_back(materials[m_range.id].desc);
-			pipeline_ptr->update_texture(cmd_buffer, m_range.id);
-		} else {
-			upd_desc_set.emplace_back(materials[0].desc);
-			pipeline_ptr->update_texture(cmd_buffer, -1);
+			if(!material.diffuse_texname.empty()){
+				upd_desc_set.emplace_back(material.desc);
+				pipeline_ptr->update_texture(cmd_buffer, m_range.id);
+			} else {
+			//	upd_desc_set.emplace_back(materials[0].desc);
+				pipeline_ptr->update_texture(cmd_buffer, -1);
+			}
+
+			cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+				pipeline_layout, 0, upd_desc_set, std::vector<uint32_t>());
+
+			cmd_buffer.drawIndexed(m_range.range, 1, offset, 0, 0);
 		}
-
-		cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-			pipeline_layout, 0, upd_desc_set, std::vector<uint32_t>());
-
-		cmd_buffer.drawIndexed(m_range.range, 1, offset, 0, 0);
 		offset += m_range.range;
 	}
 }
@@ -444,7 +446,7 @@ struct buffer_to_image_f{
 buffer_to_image_f stage_texture_f(
 	std::string path, std::string filename, vk::Device device,
 	vk::PhysicalDeviceMemoryProperties mem_prop){
-	int num_requested_components = 0;
+	int num_requested_components = 4;
 
 	int width = 0;
 	int height = 0;
@@ -484,8 +486,8 @@ void cmd_load_to_device_image_f(vk::CommandBuffer cmd_buffer,
 		vk::ImageLayout::eTransferDstOptimal, std::array<vk::BufferImageCopy, 1>{
 		vk::BufferImageCopy()
 		/*	.setBufferOffset(0)
-			.setBufferRowLength(0)
-			.setBufferImageHeight(0)*/
+			.setBufferRowLength(host_buffer.width)
+			.setBufferImageHeight(host_buffer.height)*/
 			.setImageSubresource(vk::ImageSubresourceLayers()
 				.setAspectMask(vk::ImageAspectFlagBits::eColor)
 				.setMipLevel(0)
