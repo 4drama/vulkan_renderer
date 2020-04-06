@@ -106,12 +106,105 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 			.setColorWriteMask(cc::eR | cc::eG | cc::eB | cc::eA)
 	};
 
-	this->pipeline = device.createGraphicsPipeline(
+	const std::array<vk::PipelineShaderStageCreateInfo, 2> color_stages{
+		shader_stages[static_cast<int>(SHADER_TYPE::VERT)],
+		shader_stages[static_cast<int>(SHADER_TYPE::COLOR_FRAG)]
+	};
+
+	this->pipeline[static_cast<int>(PIPELINE_TYPE::COLOR)] = device.createGraphicsPipeline(
 		this->pipeline_cache,
 		vk::GraphicsPipelineCreateInfo()
 			.setFlags(vk::PipelineCreateFlags())
-			.setStageCount(this->shader_stages.size())
-			.setPStages(this->shader_stages.data())
+			.setStageCount(color_stages.size())
+			.setPStages(color_stages.data())
+			.setPVertexInputState(&vk::PipelineVertexInputStateCreateInfo()
+				.setFlags(vk::PipelineVertexInputStateCreateFlags())
+				.setVertexBindingDescriptionCount(1)
+				.setPVertexBindingDescriptions(&this->vi_binding)
+				.setVertexAttributeDescriptionCount(this->vi_attribs.size())
+				.setPVertexAttributeDescriptions(this->vi_attribs.data()))
+			.setPInputAssemblyState(&vk::PipelineInputAssemblyStateCreateInfo()
+				.setFlags(vk::PipelineInputAssemblyStateCreateFlags())
+				.setTopology(vk::PrimitiveTopology::eTriangleList)
+				.setPrimitiveRestartEnable(false))
+			.setPTessellationState(nullptr)
+			.setPViewportState(&vk::PipelineViewportStateCreateInfo()
+				.setFlags(vk::PipelineViewportStateCreateFlags())
+				.setViewportCount(1)
+				.setPViewports(nullptr)
+				.setScissorCount(1)
+				.setPScissors(nullptr))
+			.setPRasterizationState(&vk::PipelineRasterizationStateCreateInfo()
+				.setFlags(vk::PipelineRasterizationStateCreateFlags())
+				.setDepthClampEnable(true)
+				.setRasterizerDiscardEnable(false)
+				.setPolygonMode(vk::PolygonMode::eFill)
+				.setCullMode(vk::CullModeFlagBits::eBack)
+				.setFrontFace(vk::FrontFace::eClockwise)
+				.setDepthBiasEnable(false)
+				.setDepthBiasConstantFactor(0)
+				.setDepthBiasClamp(0)
+				.setDepthBiasSlopeFactor(0)
+				.setLineWidth(0))
+			.setPMultisampleState(&vk::PipelineMultisampleStateCreateInfo()
+				.setFlags(vk::PipelineMultisampleStateCreateFlags())
+				.setRasterizationSamples(vk::SampleCountFlagBits::e1)
+				.setSampleShadingEnable(false)
+				.setMinSampleShading(0.0)
+				.setPSampleMask(nullptr)
+				.setAlphaToCoverageEnable(false)
+				.setAlphaToOneEnable(false))
+			.setPDepthStencilState(&vk::PipelineDepthStencilStateCreateInfo()
+				.setFlags(vk::PipelineDepthStencilStateCreateFlags())
+				.setDepthTestEnable(true)
+				.setDepthWriteEnable(true)
+				.setDepthCompareOp(vk::CompareOp::eLessOrEqual)
+				.setDepthBoundsTestEnable(false)
+				.setStencilTestEnable(false)
+				.setFront(vk::StencilOpState()
+					.setFailOp(vk::StencilOp::eKeep)
+					.setPassOp(vk::StencilOp::eKeep)
+					.setDepthFailOp(vk::StencilOp::eKeep)
+					.setCompareOp(vk::CompareOp::eAlways)
+					.setCompareMask(0)
+					.setWriteMask(0)
+					.setReference(0))
+				.setBack(vk::StencilOpState()
+					.setFailOp(vk::StencilOp::eKeep)
+					.setPassOp(vk::StencilOp::eKeep)
+					.setDepthFailOp(vk::StencilOp::eKeep)
+					.setCompareOp(vk::CompareOp::eAlways)
+					.setCompareMask(0)
+					.setWriteMask(0)
+					.setReference(0))
+				.setMinDepthBounds(0)
+				.setMaxDepthBounds(0))
+			.setPColorBlendState(&vk::PipelineColorBlendStateCreateInfo()
+				.setFlags(vk::PipelineColorBlendStateCreateFlags())
+				.setLogicOpEnable(false)
+				.setLogicOp(vk::LogicOp::eNoOp)
+				.setAttachmentCount(att_state.size())
+				.setPAttachments(att_state.data())
+				.setBlendConstants(std::array<float,4>{1.0f, 1.0f, 1.0f, 1.0f}))
+			.setPDynamicState(&dynamic_state)
+			.setLayout(this->pipeline_layout)
+			.setRenderPass(this->render_pass)
+			.setSubpass(0)
+			.setBasePipelineHandle(vk::Pipeline())
+			.setBasePipelineIndex(0)
+	);
+
+	const std::array<vk::PipelineShaderStageCreateInfo, 2> tranc_stages{
+		shader_stages[static_cast<int>(SHADER_TYPE::VERT)],
+		shader_stages[static_cast<int>(SHADER_TYPE::TRANC_FRAG)]
+	};
+
+	this->pipeline[static_cast<int>(PIPELINE_TYPE::TRANSPARENCY)] = device.createGraphicsPipeline(
+		this->pipeline_cache,
+		vk::GraphicsPipelineCreateInfo()
+			.setFlags(vk::PipelineCreateFlags())
+			.setStageCount(tranc_stages.size())
+			.setPStages(tranc_stages.data())
 			.setPVertexInputState(&vk::PipelineVertexInputStateCreateInfo()
 				.setFlags(vk::PipelineVertexInputStateCreateFlags())
 				.setVertexBindingDescriptionCount(1)
@@ -227,6 +320,38 @@ void indeced_mash_vk::cmd_draw(vk::Device device, const pipeline_t *pipeline_ptr
 	}
 }
 
+void indeced_mash_vk::cmd_draw_tranc(vk::Device device, const pipeline_t *pipeline_ptr,
+	const vk::CommandBuffer &cmd_buffer, const vk::PipelineLayout &pipeline_layout,
+	const std::vector<vk::DescriptorSet> &desc_sets) const{
+
+	cmd_buffer.bindVertexBuffers(0, std::vector<vk::Buffer>{
+		this->vertex_buffer.buf}, std::vector<vk::DeviceSize>{0});
+
+	cmd_buffer.bindIndexBuffer(this->index_buffer.buf,
+		0, vk::IndexType::eUint32);
+
+	uint32_t offset = 0;
+	for(auto &m_range : this->materials_ranges){
+		const material_t& material = materials[m_range.id];
+		if(material.dissolve != 1){
+			std::vector<vk::DescriptorSet> upd_desc_set = desc_sets;
+
+			if(!material.diffuse_texname.empty()){
+				upd_desc_set.emplace_back(material.desc);
+				pipeline_ptr->update_texture(cmd_buffer, m_range.id);
+			} else {
+			//	upd_desc_set.emplace_back(materials[0].desc);
+				pipeline_ptr->update_texture(cmd_buffer, -1);
+			}
+
+			cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+				pipeline_layout, 0, upd_desc_set, std::vector<uint32_t>());
+
+			cmd_buffer.drawIndexed(m_range.range, 1, offset, 0, 0);
+		}
+		offset += m_range.range;
+	}
+}
 
 void pipeline_t::update_texture(const vk::CommandBuffer &cmd_buffer, int value) const{
 	cmd_buffer.fillBuffer(this->texture_index_buffer.buf, 0, sizeof(int), (uint32_t)value);
@@ -250,7 +375,8 @@ void pipeline_t::cmd_fill_render_pass(vk::Device device,
 		vk::SubpassContents::eInline
 	);
 
-	cmd_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, this->pipeline);
+	cmd_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+		this->pipeline[static_cast<int>(PIPELINE_TYPE::COLOR)]);
 
 	std::vector<vk::DescriptorSet> desc_sets(this->vertex_descriptor.sets); //to del
 	desc_sets.insert(desc_sets.cend(),
@@ -275,6 +401,14 @@ void pipeline_t::cmd_fill_render_pass(vk::Device device,
 	});
 
 	this->scene_buffer.cmd_draw(device, this, cmd_buffer,
+		this->pipeline_layout, desc_sets);
+
+	cmd_buffer.nextSubpass(vk::SubpassContents::eInline);
+
+	cmd_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+		this->pipeline[static_cast<int>(PIPELINE_TYPE::TRANSPARENCY)]);
+
+	this->scene_buffer.cmd_draw_tranc(device, this, cmd_buffer,
 		this->pipeline_layout, desc_sets);
 
 	cmd_buffer.endRenderPass();
@@ -706,13 +840,6 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 	this->mvp_buffer = create_buffer_f(device, physical_device, get_mvp_buffer_size());
 	this->texture_index_buffer = create_buffer_f(device, physical_device, sizeof(int));
 
-	std::vector<vk::DescriptorImageInfo> image_infos{};
-	std::vector<vk::Sampler> samplers{};
-	for(auto &tex : this->scene_buffer.textures){
-		image_infos.emplace_back(tex.second.info);
-		samplers.emplace_back(tex.second.info.sampler);
-	}
-
 	this->vertex_descriptor = descriptor_t(
 		device,
 		std::vector<layout_f>{
@@ -807,11 +934,14 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 	this->init_const_range();
 	this->init_pipeline_layouts(device);
 
-	this->shader_stages[0] = load_shader_f(device,
+	this->shader_stages[static_cast<int>(SHADER_TYPE::VERT)] = load_shader_f(device,
 		"./shaders/vert_shader.spv", vk::ShaderStageFlagBits::eVertex);
 
-	this->shader_stages[1] = load_shader_f(device,
+	this->shader_stages[static_cast<int>(SHADER_TYPE::COLOR_FRAG)] = load_shader_f(device,
 		"./shaders/frag_shader.spv", vk::ShaderStageFlagBits::eFragment);
+
+	this->shader_stages[static_cast<int>(SHADER_TYPE::TRANC_FRAG)] = load_shader_f(device,
+		"./shaders/frag_shader_tranc.spv", vk::ShaderStageFlagBits::eFragment);
 
 	this->pipeline_cache = create_pipeline_cache_f(device);
 
@@ -820,6 +950,11 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 }
 
 void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &format){
+	enum class ATTACHMENT{
+		COLOR = 0,
+		DEPTH = 1
+	};
+
 	const std::array<vk::AttachmentDescription, 2> attachments {
 		vk::AttachmentDescription()
 			.setFormat(format)
@@ -842,33 +977,73 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 			.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
 	};
 
-	vk::AttachmentReference color_reference = vk::AttachmentReference()
-		.setAttachment(0)
-		.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
-
 	vk::AttachmentReference depth_reference = vk::AttachmentReference()
-		.setAttachment(1)
+		.setAttachment(static_cast<int>(ATTACHMENT::DEPTH))
 		.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-	vk::SubpassDescription subpass = vk::SubpassDescription()
-		.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-		.setInputAttachmentCount(0)
-		.setPInputAttachments(nullptr)
-		.setColorAttachmentCount(1)
-		.setPColorAttachments(&color_reference)
-		.setPResolveAttachments(nullptr)
-		.setPDepthStencilAttachment(&depth_reference)
-		.setPreserveAttachmentCount(0)
-		.setPPreserveAttachments(nullptr);
+	const std::array<vk::AttachmentReference, 1> color_reference{
+		vk::AttachmentReference()
+			.setAttachment(static_cast<int>(ATTACHMENT::COLOR))
+			.setLayout(vk::ImageLayout::eColorAttachmentOptimal)
+	};
+
+	const std::array<vk::AttachmentReference, 2> transparency_input{
+		vk::AttachmentReference()
+			.setAttachment(static_cast<int>(ATTACHMENT::COLOR))
+			.setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+		vk::AttachmentReference()
+			.setAttachment(static_cast<int>(ATTACHMENT::DEPTH))
+			.setLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal)
+	};
+
+	enum class SUBPASS{
+		COLOR = 0,
+		TRANSPARENCY = 1
+	};
+	const std::array<vk::SubpassDescription, static_cast<int>(PIPELINE_TYPE::SIZE)>
+		subpass {
+			vk::SubpassDescription()
+				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+				.setInputAttachmentCount(0)
+				.setPInputAttachments(nullptr)
+				.setColorAttachmentCount(color_reference.size())
+				.setPColorAttachments(color_reference.data())
+				.setPResolveAttachments(nullptr)
+				.setPDepthStencilAttachment(&depth_reference)
+				.setPreserveAttachmentCount(0)
+				.setPPreserveAttachments(nullptr),
+
+			vk::SubpassDescription()
+				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+				.setInputAttachmentCount(transparency_input.size())
+				.setPInputAttachments(transparency_input.data())
+				.setColorAttachmentCount(color_reference.size())
+				.setPColorAttachments(color_reference.data())
+				.setPResolveAttachments(nullptr)
+				.setPDepthStencilAttachment(nullptr)
+				.setPreserveAttachmentCount(0)
+				.setPPreserveAttachments(nullptr),
+	};
+
+	const std::array<vk::SubpassDependency, 1> dependencies{
+		vk::SubpassDependency()
+			.setSrcSubpass(static_cast<uint32_t>(SUBPASS::COLOR))
+			.setDstSubpass(static_cast<uint32_t>(SUBPASS::TRANSPARENCY))
+			.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+			.setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+			.setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+			.setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+			.setDependencyFlags(vk::DependencyFlagBits::eByRegion)
+	};
 
 	const vk::RenderPassCreateInfo render_pass_info
 		= vk::RenderPassCreateInfo()
 		.setAttachmentCount(attachments.size())
 		.setPAttachments(attachments.data())
-		.setSubpassCount(1)
-		.setPSubpasses(&subpass)
-		.setDependencyCount(0)
-		.setPDependencies(nullptr);
+		.setSubpassCount(subpass.size())
+		.setPSubpasses(subpass.data())
+		.setDependencyCount(dependencies.size())
+		.setPDependencies(dependencies.data());
 	this->render_pass = device.createRenderPass(render_pass_info);
 }
 

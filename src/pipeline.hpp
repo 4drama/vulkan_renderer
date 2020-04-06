@@ -41,6 +41,11 @@ struct indeced_mash_vk{
 		const vk::CommandBuffer &cmd_buffer,
 		const vk::PipelineLayout &pipeline_layout,
 		const std::vector<vk::DescriptorSet> &desc_sets) const;
+
+	void cmd_draw_tranc(vk::Device device, const pipeline_t *pipeline_ptr,
+		const vk::CommandBuffer &cmd_buffer,
+		const vk::PipelineLayout &pipeline_layout,
+		const std::vector<vk::DescriptorSet> &desc_sets) const;
 };
 
 class pipeline_t{
@@ -82,7 +87,14 @@ private:
 		vk::ImageView view;
 	} depth;
 
-	std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages;
+	enum class SHADER_TYPE{
+		VERT = 0,
+		COLOR_FRAG = 1,
+		TRANC_FRAG = 2,
+		SIZE = 3
+	};
+	std::array<vk::PipelineShaderStageCreateInfo, static_cast<int>(SHADER_TYPE::SIZE)>
+		shader_stages;
 
 //	std::vector<vk::DescriptorSetLayout> desc_set_layout;	// init_pipeline_layouts, to del
 //	std::vector<vk::DescriptorSet> desc_sets;	//	bindDescriptorSets, to del
@@ -99,7 +111,13 @@ private:
 	vk::DescriptorPool desc_pool;
 
 	vk::PipelineCache pipeline_cache;
-	vk::Pipeline pipeline;
+
+	enum class PIPELINE_TYPE{
+		COLOR = 0,
+		TRANSPARENCY = 1,
+		SIZE = 2
+	};
+	vk::Pipeline pipeline[static_cast<int>(PIPELINE_TYPE::SIZE)];
 
 	vk::RenderPass render_pass;
 

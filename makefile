@@ -24,6 +24,7 @@ ALL: cclean
 
 	glslangValidator -V -o ./shaders/vert_shader.spv ./src/shader.vert
 	glslangValidator -V -o ./shaders/frag_shader.spv ./src/shader.frag
+	glslangValidator -V -o ./shaders/frag_shader_tranc.spv ./src/shader_tranc.frag
 
 	gcc $(VK_LIB) ./obj/rnd.o ./obj/test.o ./obj/pipeline.o ./obj/utils.o \
 		./obj/desc_sets.o -o test.exe $(VK_LINK_FLAG) $(CPP_LINK_FLAG)
