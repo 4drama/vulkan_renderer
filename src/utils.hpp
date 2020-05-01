@@ -117,8 +117,8 @@ struct material_t{
 
 struct material_range_t{
 	uint32_t id;
-//	uint32_t offset;
 	uint32_t range;
+	uint32_t offset = 0;
 };
 
 struct indeced_mash{

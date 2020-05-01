@@ -224,12 +224,12 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 				.setPScissors(nullptr))
 			.setPRasterizationState(&vk::PipelineRasterizationStateCreateInfo()
 				.setFlags(vk::PipelineRasterizationStateCreateFlags())
-				.setDepthClampEnable(true)
+				.setDepthClampEnable(false)
 				.setRasterizerDiscardEnable(false)
 				.setPolygonMode(vk::PolygonMode::eFill)
 				.setCullMode(vk::CullModeFlagBits::eBack)
 				.setFrontFace(vk::FrontFace::eClockwise)
-				.setDepthBiasEnable(false)
+				.setDepthBiasEnable(true)
 				.setDepthBiasConstantFactor(0)
 				.setDepthBiasClamp(0)
 				.setDepthBiasSlopeFactor(0)
@@ -245,7 +245,7 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 			.setPDepthStencilState(&vk::PipelineDepthStencilStateCreateInfo()
 				.setFlags(vk::PipelineDepthStencilStateCreateFlags())
 				.setDepthTestEnable(true)
-				.setDepthWriteEnable(true)
+				.setDepthWriteEnable(false)
 				.setDepthCompareOp(vk::CompareOp::eLessOrEqual)
 				.setDepthBoundsTestEnable(false)
 				.setStencilTestEnable(false)
@@ -277,7 +277,7 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 			.setPDynamicState(&dynamic_state)
 			.setLayout(this->pipeline_layout)
 			.setRenderPass(this->render_pass)
-			.setSubpass(0)
+			.setSubpass(1)
 			.setBasePipelineHandle(vk::Pipeline())
 			.setBasePipelineIndex(0)
 	);
@@ -288,6 +288,31 @@ void pipeline_t::update_camera(const vk::Device &device, camera cam){
 }
 
 void indeced_mash_vk::cmd_draw(vk::Device device, const pipeline_t *pipeline_ptr,
+	const vk::CommandBuffer &cmd_buffer, const vk::PipelineLayout &pipeline_layout,
+	const std::vector<vk::DescriptorSet> &desc_sets,
+	const std::vector<material_range_t> &ranges) const{
+
+	cmd_buffer.bindVertexBuffers(0, std::vector<vk::Buffer>{
+		this->vertex_buffer.buf}, std::vector<vk::DeviceSize>{0});
+
+	cmd_buffer.bindIndexBuffer(this->index_buffer.buf,
+		0, vk::IndexType::eUint32);
+
+	for(auto &m_range : ranges){
+		std::vector<vk::DescriptorSet> upd_desc_set = desc_sets;
+	//	const material_t& material = materials[m_range.id];
+	//	if(!material.diffuse_texname.empty()){
+//			upd_desc_set.emplace_back(material.desc);
+	//	}
+		cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+			pipeline_layout, 0, upd_desc_set, std::vector<uint32_t>());
+
+		cmd_buffer.drawIndexed(m_range.range, 1, m_range.offset, 0, 0);
+	}
+}
+
+//delete
+/*void indeced_mash_vk::cmd_draw_old(vk::Device device, const pipeline_t *pipeline_ptr,
 	const vk::CommandBuffer &cmd_buffer, const vk::PipelineLayout &pipeline_layout,
 	const std::vector<vk::DescriptorSet> &desc_sets) const{
 
@@ -318,9 +343,9 @@ void indeced_mash_vk::cmd_draw(vk::Device device, const pipeline_t *pipeline_ptr
 		}
 		offset += m_range.range;
 	}
-}
+}*/
 
-void indeced_mash_vk::cmd_draw_tranc(vk::Device device, const pipeline_t *pipeline_ptr,
+/*void indeced_mash_vk::cmd_draw_tranc(vk::Device device, const pipeline_t *pipeline_ptr,
 	const vk::CommandBuffer &cmd_buffer, const vk::PipelineLayout &pipeline_layout,
 	const std::vector<vk::DescriptorSet> &desc_sets) const{
 
@@ -338,10 +363,10 @@ void indeced_mash_vk::cmd_draw_tranc(vk::Device device, const pipeline_t *pipeli
 
 			if(!material.diffuse_texname.empty()){
 				upd_desc_set.emplace_back(material.desc);
-				pipeline_ptr->update_texture(cmd_buffer, m_range.id);
+			//	pipeline_ptr->update_texture(cmd_buffer, m_range.id);
 			} else {
 			//	upd_desc_set.emplace_back(materials[0].desc);
-				pipeline_ptr->update_texture(cmd_buffer, -1);
+			//	pipeline_ptr->update_texture(cmd_buffer, -1);
 			}
 
 			cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
@@ -351,7 +376,7 @@ void indeced_mash_vk::cmd_draw_tranc(vk::Device device, const pipeline_t *pipeli
 		}
 		offset += m_range.range;
 	}
-}
+}*/
 
 void pipeline_t::update_texture(const vk::CommandBuffer &cmd_buffer, int value) const{
 	cmd_buffer.fillBuffer(this->texture_index_buffer.buf, 0, sizeof(int), (uint32_t)value);
@@ -400,15 +425,20 @@ void pipeline_t::cmd_fill_render_pass(vk::Device device,
 			.setExtent(vk::Extent2D(area.extent.width, area.extent.height))
 	});
 
-	this->scene_buffer.cmd_draw(device, this, cmd_buffer,
+	this->scene_buffer.cmd_no_tex_draw(device, this, cmd_buffer,
 		this->pipeline_layout, desc_sets);
+	this->scene_buffer.cmd_tex_draw(device, this, cmd_buffer,
+		this->pipeline_layout, desc_sets);
+
+//	this->scene_buffer.cmd_draw_old(device, this, cmd_buffer,
+//		this->pipeline_layout, desc_sets);
 
 	cmd_buffer.nextSubpass(vk::SubpassContents::eInline);
 
 	cmd_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
 		this->pipeline[static_cast<int>(PIPELINE_TYPE::TRANSPARENCY)]);
 
-	this->scene_buffer.cmd_draw_tranc(device, this, cmd_buffer,
+	this->scene_buffer.cmd_trans_draw(device, this, cmd_buffer,
 		this->pipeline_layout, desc_sets);
 
 	cmd_buffer.endRenderPass();
@@ -718,6 +748,32 @@ std::map<std::string, image_t> load_textures_f(vk::PhysicalDevice physical_devic
 
 }
 
+namespace{
+	void butch(indeced_mash_vk& mash,
+		const std::vector<material_range_t> &materials_ranges){
+
+		uint32_t offset = 0;
+			for(auto &range : materials_ranges){
+				const material_t& material = mash.materials[range.id];
+			//	std::cerr << range.id << ' ' << material.dissolve << std::endl;
+				if(material.dissolve == 1){
+
+					if(!material.diffuse_texname.empty()){
+						mash.texture_ranges.emplace_back(
+							material_range_t{range.id, range.range, offset});
+					} else {
+						mash.no_texture_ranges.emplace_back(
+							material_range_t{range.id, range.range, offset});
+					}
+				} else {
+					mash.transparency_ranges.emplace_back(
+						material_range_t{range.id, range.range, offset});
+				}
+				offset += range.range;
+			}
+	}
+}
+
 void pipeline_t::load_scene(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device,
 	const vk::CommandBuffer &cmd_buffer, const vk::Queue &queue,
@@ -743,7 +799,9 @@ void pipeline_t::load_scene(const vk::Device &device,
 		mash.path, &mash.materials, format, cmd_buffer, queue);
 
 	this->scene_buffer.materials = mash.materials;
-	this->scene_buffer.materials_ranges = mash.materials_ranges;
+//	this->scene_buffer.materials_ranges = mash.materials_ranges; //delete
+	butch(this->scene_buffer, mash.materials_ranges);
+//	abort();
 }
 
 void pipeline_t::init_depth_buffer(const vk::Device &device,
@@ -762,6 +820,35 @@ void pipeline_t::init_depth_buffer(const vk::Device &device,
 
 	this->depth.view = create_2d_image_view(device, this->depth.image, format,
 		vk::ImageAspectFlagBits::eDepth);
+
+	this->depth.info = vk::DescriptorImageInfo()
+		.setSampler(vk::Sampler()/*device.createSampler(vk::SamplerCreateInfo()
+			.setFlags(vk::SamplerCreateFlags())
+			.setMagFilter(vk::Filter::eLinear)
+			.setMinFilter(vk::Filter::eLinear)
+			.setMipmapMode(vk::SamplerMipmapMode::eLinear)
+
+			.setAddressModeU(vk::SamplerAddressMode::eRepeat)
+			.setAddressModeV(vk::SamplerAddressMode::eRepeat)
+			.setAddressModeW(vk::SamplerAddressMode::eRepeat)
+
+			.setMipLodBias(1)
+
+			.setAnisotropyEnable(true)
+			.setMaxAnisotropy(2)
+
+			.setCompareEnable(true)
+			.setCompareOp(vk::CompareOp::eLess)
+
+			.setMinLod(1)
+			.setMaxLod(1)
+
+			.setBorderColor(vk::BorderColor::eFloatTransparentBlack)
+			.setUnnormalizedCoordinates(false))*/)
+
+		.setImageView(this->depth.view)
+		.setImageLayout(vk::ImageLayout::/*eShaderReadOnlyOptimal*/
+			eDepthStencilAttachmentOptimal);
 }
 
 namespace{
@@ -810,11 +897,12 @@ vk::PipelineCache create_pipeline_cache_f(const vk::Device &device){
 namespace{
 
 buffer_t create_buffer_f(const vk::Device &device,
-	const vk::PhysicalDevice &physical_device, std::size_t size){
+	const vk::PhysicalDevice &physical_device, std::size_t size,
+	vk::BufferUsageFlags usage = vk::BufferUsageFlagBits::eUniformBuffer){
 	buffer_t buf;
 	buf.buf = device.createBuffer(vk::BufferCreateInfo()
 		.setSize(size)
-		.setUsage(vk::BufferUsageFlagBits::eUniformBuffer));
+		.setUsage(usage));
 
 	vk::MemoryRequirements mem_req = device.getBufferMemoryRequirements(buf.buf);
 
@@ -838,7 +926,8 @@ buffer_t create_buffer_f(const vk::Device &device,
 void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device){
 	this->mvp_buffer = create_buffer_f(device, physical_device, get_mvp_buffer_size());
-	this->texture_index_buffer = create_buffer_f(device, physical_device, sizeof(int));
+	this->texture_index_buffer = create_buffer_f(device, physical_device, sizeof(int),
+	vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst);
 
 	this->vertex_descriptor = descriptor_t(
 		device,
@@ -869,6 +958,17 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 					.setPImmutableSamplers(nullptr),
 				nullptr,
 				&this->texture_index_buffer.info,
+				nullptr
+			},
+			{
+				vk::DescriptorSetLayoutBinding()
+					.setBinding(3)
+					.setDescriptorType(vk::DescriptorType::eInputAttachment)
+					.setDescriptorCount(1)
+					.setStageFlags(vk::ShaderStageFlagBits::eFragment)
+					.setPImmutableSamplers(nullptr),
+				&this->depth.info,
+				nullptr,
 				nullptr
 			}
 		}
@@ -970,7 +1070,7 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 			.setFormat(this->depth.format)
 			.setSamples(pipeline_t::num_samples)
 			.setLoadOp(vk::AttachmentLoadOp::eClear)
-			.setStoreOp(vk::AttachmentStoreOp::eDontCare)
+			.setStoreOp(vk::AttachmentStoreOp::eStore)
 			.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
 			.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
 			.setInitialLayout(vk::ImageLayout::eUndefined)
@@ -993,7 +1093,7 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 			.setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
 		vk::AttachmentReference()
 			.setAttachment(static_cast<int>(ATTACHMENT::DEPTH))
-			.setLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal)
+			.setLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
 	};
 
 	enum class SUBPASS{
@@ -1020,7 +1120,7 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 				.setColorAttachmentCount(color_reference.size())
 				.setPColorAttachments(color_reference.data())
 				.setPResolveAttachments(nullptr)
-				.setPDepthStencilAttachment(nullptr)
+				.setPDepthStencilAttachment(&depth_reference)
 				.setPreserveAttachmentCount(0)
 				.setPPreserveAttachments(nullptr),
 	};

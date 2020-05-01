@@ -35,17 +35,48 @@ struct indeced_mash_vk{
 	std::map<std::string, image_t>	textures;
 
 	std::vector<material_t> materials;
-	std::vector<material_range_t> materials_ranges;
+//	std::vector<material_range_t> materials_ranges;	//delete
+
+	std::vector<material_range_t> no_texture_ranges;
+	std::vector<material_range_t> texture_ranges;
+	std::vector<material_range_t> transparency_ranges;
 
 	void cmd_draw(vk::Device device, const pipeline_t *pipeline_ptr,
-		const vk::CommandBuffer &cmd_buffer,
-		const vk::PipelineLayout &pipeline_layout,
-		const std::vector<vk::DescriptorSet> &desc_sets) const;
+		const vk::CommandBuffer &cmd_buffer, const vk::PipelineLayout &pipeline_layout,
+		const std::vector<vk::DescriptorSet> &desc_sets,
+		const std::vector<material_range_t> &ranges) const;
 
-	void cmd_draw_tranc(vk::Device device, const pipeline_t *pipeline_ptr,
+	inline void cmd_no_tex_draw(vk::Device device, const pipeline_t *pipeline_ptr,
+		const vk::CommandBuffer &cmd_buffer, const vk::PipelineLayout &pipeline_layout,
+		const std::vector<vk::DescriptorSet> &desc_sets) const{
+			cmd_draw(device, pipeline_ptr, cmd_buffer, pipeline_layout,
+				desc_sets, no_texture_ranges);
+		}
+
+	inline void cmd_tex_draw(vk::Device device, const pipeline_t *pipeline_ptr,
+		const vk::CommandBuffer &cmd_buffer, const vk::PipelineLayout &pipeline_layout,
+		const std::vector<vk::DescriptorSet> &desc_sets) const{
+			cmd_draw(device, pipeline_ptr, cmd_buffer, pipeline_layout,
+				desc_sets, texture_ranges);
+		}
+
+	inline void cmd_trans_draw(vk::Device device, const pipeline_t *pipeline_ptr,
+		const vk::CommandBuffer &cmd_buffer, const vk::PipelineLayout &pipeline_layout,
+		const std::vector<vk::DescriptorSet> &desc_sets) const{
+			cmd_draw(device, pipeline_ptr, cmd_buffer, pipeline_layout,
+				desc_sets, transparency_ranges);
+		}
+
+	//NEED REDO WITH BUTCH
+	void cmd_draw_old(vk::Device device, const pipeline_t *pipeline_ptr,
 		const vk::CommandBuffer &cmd_buffer,
 		const vk::PipelineLayout &pipeline_layout,
-		const std::vector<vk::DescriptorSet> &desc_sets) const;
+		const std::vector<vk::DescriptorSet> &desc_sets) const; //delete
+
+/*	void cmd_draw_tranc(vk::Device device, const pipeline_t *pipeline_ptr,
+		const vk::CommandBuffer &cmd_buffer,
+		const vk::PipelineLayout &pipeline_layout,
+		const std::vector<vk::DescriptorSet> &desc_sets) const;*/
 };
 
 class pipeline_t{
@@ -85,6 +116,8 @@ private:
 		vk::Image image;
 		vk::DeviceMemory mem;
 		vk::ImageView view;
+
+		vk::DescriptorImageInfo info;
 	} depth;
 
 	enum class SHADER_TYPE{
@@ -101,6 +134,7 @@ private:
 
 	descriptor_t vertex_descriptor;
 	mutable descriptor_t fragment_descriptor;
+
 	vk::DescriptorSetLayout texture_layout;
 //	std::vector<vk::DescriptorSetLayout> texture_layouts;
 

@@ -21,6 +21,7 @@ ALL: cclean
 	gcc -c $(VK_INCLUDE) -std=c++17 ./src/rnd.cpp -o ./obj/rnd.o
 
 	gcc -c $(VK_INCLUDE) -std=c++17 ./src/desc_sets.cpp -o ./obj/desc_sets.o
+	gcc -c $(VK_INCLUDE) -std=c++17 ./src/test.cpp -o ./obj/test.o
 
 	glslangValidator -V -o ./shaders/vert_shader.spv ./src/shader.vert
 	glslangValidator -V -o ./shaders/frag_shader.spv ./src/shader.frag
