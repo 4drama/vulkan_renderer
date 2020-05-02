@@ -18,17 +18,17 @@ void main() {
 	float lod_bias = 0;
 	vec4 color;
 
-/*	if(texture_index == -1){
+	if(texture_index == -1){
 		color = vec4(in_color, 255);
 	} else {
 		color = texture(sampler_color, in_uv, lod_bias);
-	}*/
+	}
 
 //	if(textureSize( sampler_color, 0).x > 0);
 	//	color = texture(sampler_color, in_uv, lod_bias);
 //	else
 //	textureSize( sampler_color, 0);
-	color = vec4(in_color, 255);
+//	color = vec4(in_color, 255);
 
 	vec3 light = vec3(0, 2.5 - 7, -7);
 	float intensity = 0.75;

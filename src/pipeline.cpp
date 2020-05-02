@@ -300,83 +300,18 @@ void indeced_mash_vk::cmd_draw(vk::Device device, const pipeline_t *pipeline_ptr
 
 	for(auto &m_range : ranges){
 		std::vector<vk::DescriptorSet> upd_desc_set = desc_sets;
-	//	const material_t& material = materials[m_range.id];
-	//	if(!material.diffuse_texname.empty()){
-//			upd_desc_set.emplace_back(material.desc);
-	//	}
+		const material_t& material = materials[m_range.id];
+		if(!material.diffuse_texname.empty()){
+			upd_desc_set.emplace_back(material.desc);
+		} else
+			upd_desc_set.emplace_back(materials[0].desc);
+
 		cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
 			pipeline_layout, 0, upd_desc_set, std::vector<uint32_t>());
 
 		cmd_buffer.drawIndexed(m_range.range, 1, m_range.offset, 0, 0);
 	}
 }
-
-//delete
-/*void indeced_mash_vk::cmd_draw_old(vk::Device device, const pipeline_t *pipeline_ptr,
-	const vk::CommandBuffer &cmd_buffer, const vk::PipelineLayout &pipeline_layout,
-	const std::vector<vk::DescriptorSet> &desc_sets) const{
-
-	cmd_buffer.bindVertexBuffers(0, std::vector<vk::Buffer>{
-		this->vertex_buffer.buf}, std::vector<vk::DeviceSize>{0});
-
-	cmd_buffer.bindIndexBuffer(this->index_buffer.buf,
-		0, vk::IndexType::eUint32);
-
-	uint32_t offset = 0;
-	for(auto &m_range : this->materials_ranges){
-		const material_t& material = materials[m_range.id];
-		if(material.dissolve == 1){
-			std::vector<vk::DescriptorSet> upd_desc_set = desc_sets;
-
-			if(!material.diffuse_texname.empty()){
-				upd_desc_set.emplace_back(material.desc);
-				pipeline_ptr->update_texture(cmd_buffer, m_range.id);
-			} else {
-			//	upd_desc_set.emplace_back(materials[0].desc);
-				pipeline_ptr->update_texture(cmd_buffer, -1);
-			}
-
-			cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-				pipeline_layout, 0, upd_desc_set, std::vector<uint32_t>());
-
-			cmd_buffer.drawIndexed(m_range.range, 1, offset, 0, 0);
-		}
-		offset += m_range.range;
-	}
-}*/
-
-/*void indeced_mash_vk::cmd_draw_tranc(vk::Device device, const pipeline_t *pipeline_ptr,
-	const vk::CommandBuffer &cmd_buffer, const vk::PipelineLayout &pipeline_layout,
-	const std::vector<vk::DescriptorSet> &desc_sets) const{
-
-	cmd_buffer.bindVertexBuffers(0, std::vector<vk::Buffer>{
-		this->vertex_buffer.buf}, std::vector<vk::DeviceSize>{0});
-
-	cmd_buffer.bindIndexBuffer(this->index_buffer.buf,
-		0, vk::IndexType::eUint32);
-
-	uint32_t offset = 0;
-	for(auto &m_range : this->materials_ranges){
-		const material_t& material = materials[m_range.id];
-		if(material.dissolve != 1){
-			std::vector<vk::DescriptorSet> upd_desc_set = desc_sets;
-
-			if(!material.diffuse_texname.empty()){
-				upd_desc_set.emplace_back(material.desc);
-			//	pipeline_ptr->update_texture(cmd_buffer, m_range.id);
-			} else {
-			//	upd_desc_set.emplace_back(materials[0].desc);
-			//	pipeline_ptr->update_texture(cmd_buffer, -1);
-			}
-
-			cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-				pipeline_layout, 0, upd_desc_set, std::vector<uint32_t>());
-
-			cmd_buffer.drawIndexed(m_range.range, 1, offset, 0, 0);
-		}
-		offset += m_range.range;
-	}
-}*/
 
 void pipeline_t::update_texture(const vk::CommandBuffer &cmd_buffer, int value) const{
 	cmd_buffer.fillBuffer(this->texture_index_buffer.buf, 0, sizeof(int), (uint32_t)value);
@@ -425,8 +360,11 @@ void pipeline_t::cmd_fill_render_pass(vk::Device device,
 			.setExtent(vk::Extent2D(area.extent.width, area.extent.height))
 	});
 
+	this->update_texture(cmd_buffer, -1);
 	this->scene_buffer.cmd_no_tex_draw(device, this, cmd_buffer,
 		this->pipeline_layout, desc_sets);
+
+	this->update_texture(cmd_buffer, 1);
 	this->scene_buffer.cmd_tex_draw(device, this, cmd_buffer,
 		this->pipeline_layout, desc_sets);
 
@@ -438,6 +376,7 @@ void pipeline_t::cmd_fill_render_pass(vk::Device device,
 	cmd_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
 		this->pipeline[static_cast<int>(PIPELINE_TYPE::TRANSPARENCY)]);
 
+	this->update_texture(cmd_buffer, -1);
 	this->scene_buffer.cmd_trans_draw(device, this, cmd_buffer,
 		this->pipeline_layout, desc_sets);
 

@@ -35,7 +35,6 @@ struct indeced_mash_vk{
 	std::map<std::string, image_t>	textures;
 
 	std::vector<material_t> materials;
-//	std::vector<material_range_t> materials_ranges;	//delete
 
 	std::vector<material_range_t> no_texture_ranges;
 	std::vector<material_range_t> texture_ranges;
@@ -66,17 +65,6 @@ struct indeced_mash_vk{
 			cmd_draw(device, pipeline_ptr, cmd_buffer, pipeline_layout,
 				desc_sets, transparency_ranges);
 		}
-
-	//NEED REDO WITH BUTCH
-	void cmd_draw_old(vk::Device device, const pipeline_t *pipeline_ptr,
-		const vk::CommandBuffer &cmd_buffer,
-		const vk::PipelineLayout &pipeline_layout,
-		const std::vector<vk::DescriptorSet> &desc_sets) const; //delete
-
-/*	void cmd_draw_tranc(vk::Device device, const pipeline_t *pipeline_ptr,
-		const vk::CommandBuffer &cmd_buffer,
-		const vk::PipelineLayout &pipeline_layout,
-		const std::vector<vk::DescriptorSet> &desc_sets) const;*/
 };
 
 class pipeline_t{
