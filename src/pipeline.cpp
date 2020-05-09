@@ -1009,11 +1009,11 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 			.setFormat(this->depth.format)
 			.setSamples(pipeline_t::num_samples)
 			.setLoadOp(vk::AttachmentLoadOp::eClear)
-			.setStoreOp(vk::AttachmentStoreOp::eStore)
+			.setStoreOp(vk::AttachmentStoreOp::eDontCare)
 			.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
 			.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
 			.setInitialLayout(vk::ImageLayout::eUndefined)
-			.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+			.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal),
 	};
 
 	vk::AttachmentReference depth_reference = vk::AttachmentReference()
@@ -1026,10 +1026,10 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 			.setLayout(vk::ImageLayout::eColorAttachmentOptimal)
 	};
 
-	const std::array<vk::AttachmentReference, 2> transparency_input{
-		vk::AttachmentReference()
-			.setAttachment(static_cast<int>(ATTACHMENT::COLOR))
-			.setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+	const std::array<vk::AttachmentReference, 1> transparency_input{
+	//	vk::AttachmentReference()
+	//		.setAttachment(static_cast<int>(ATTACHMENT::COLOR))
+	//		.setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
 		vk::AttachmentReference()
 			.setAttachment(static_cast<int>(ATTACHMENT::DEPTH))
 			.setLayout(vk::ImageLayout::eShaderReadOnlyOptimal)

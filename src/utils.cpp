@@ -156,7 +156,8 @@ vk::Image create_depth_image(const vk::Device &device, vk::Format format,
 		.setArrayLayers(1)
 		.setSamples(num_samples)
 		.setTiling(tiling)
-		.setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment)
+		.setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment
+			| vk::ImageUsageFlagBits::eInputAttachment)
 	/*	.setSharingMode()
 		.setQueueFamilyIndexCount()
 		.setPQueueFamilyIndices();*/

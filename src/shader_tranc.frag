@@ -18,8 +18,9 @@ layout( location = 11 ) in vec3 in_pos;*/
 layout( location = 0 ) out vec4 frag_color;
 
 void main() {
-	if(subpassLoad(inputDepth).r != 0)
-		frag_color = vec4(subpassLoad(inputDepth).r, 255, 255, 255);
+	float depth = subpassLoad(inputDepth).r;
+	if(depth != 0)
+		frag_color = vec4(depth, depth, depth, 255);
 	else
 		frag_color = vec4(255, 0, 0, 255);
 }
