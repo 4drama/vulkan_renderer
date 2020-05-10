@@ -94,7 +94,7 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 		= vk::DynamicState::eScissor;
 
 	using cc = vk::ColorComponentFlagBits;
-	std::array<vk::PipelineColorBlendAttachmentState, 1> att_state{
+	std::vector<vk::PipelineColorBlendAttachmentState> att_state{
 		vk::PipelineColorBlendAttachmentState()
 			.setBlendEnable(false)
 			.setSrcColorBlendFactor(vk::BlendFactor::eZero)
@@ -106,7 +106,83 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 			.setColorWriteMask(cc::eR | cc::eG | cc::eB | cc::eA)
 	};
 
-	const std::array<vk::PipelineShaderStageCreateInfo, 2> color_stages{
+	const vk::PipelineVertexInputStateCreateInfo vertex_info =
+		vk::PipelineVertexInputStateCreateInfo()
+			.setFlags(vk::PipelineVertexInputStateCreateFlags())
+			.setVertexBindingDescriptionCount(1)
+			.setPVertexBindingDescriptions(&this->vi_binding)
+			.setVertexAttributeDescriptionCount(this->vi_attribs.size())
+			.setPVertexAttributeDescriptions(this->vi_attribs.data());
+	const vk::PipelineInputAssemblyStateCreateInfo assembly_info =
+		vk::PipelineInputAssemblyStateCreateInfo()
+			.setFlags(vk::PipelineInputAssemblyStateCreateFlags())
+			.setTopology(vk::PrimitiveTopology::eTriangleList)
+			.setPrimitiveRestartEnable(false);
+	const vk::PipelineViewportStateCreateInfo view_info =
+		vk::PipelineViewportStateCreateInfo()
+			.setFlags(vk::PipelineViewportStateCreateFlags())
+			.setViewportCount(1)
+			.setPViewports(nullptr)
+			.setScissorCount(1)
+			.setPScissors(nullptr);
+	const vk::PipelineRasterizationStateCreateInfo rasterization_info =
+		vk::PipelineRasterizationStateCreateInfo()
+			.setFlags(vk::PipelineRasterizationStateCreateFlags())
+			.setDepthClampEnable(true)
+			.setRasterizerDiscardEnable(false)
+			.setPolygonMode(vk::PolygonMode::eFill)
+			.setCullMode(vk::CullModeFlagBits::eBack)
+			.setFrontFace(vk::FrontFace::eClockwise)
+			.setDepthBiasEnable(false)
+			.setDepthBiasConstantFactor(0)
+			.setDepthBiasClamp(0)
+			.setDepthBiasSlopeFactor(0)
+			.setLineWidth(0);
+	const vk::PipelineMultisampleStateCreateInfo multisample_info =
+		vk::PipelineMultisampleStateCreateInfo()
+			.setFlags(vk::PipelineMultisampleStateCreateFlags())
+			.setRasterizationSamples(vk::SampleCountFlagBits::e1)
+			.setSampleShadingEnable(false)
+			.setMinSampleShading(0.0)
+			.setPSampleMask(nullptr)
+			.setAlphaToCoverageEnable(false)
+			.setAlphaToOneEnable(false);
+	const vk::PipelineDepthStencilStateCreateInfo depth_stencil_info =
+		vk::PipelineDepthStencilStateCreateInfo()
+			.setFlags(vk::PipelineDepthStencilStateCreateFlags())
+			.setDepthTestEnable(true)
+			.setDepthWriteEnable(true)
+			.setDepthCompareOp(vk::CompareOp::eLessOrEqual)
+			.setDepthBoundsTestEnable(false)
+			.setStencilTestEnable(false)
+			.setFront(vk::StencilOpState()
+				.setFailOp(vk::StencilOp::eKeep)
+				.setPassOp(vk::StencilOp::eKeep)
+				.setDepthFailOp(vk::StencilOp::eKeep)
+				.setCompareOp(vk::CompareOp::eAlways)
+				.setCompareMask(0)
+				.setWriteMask(0)
+				.setReference(0))
+			.setBack(vk::StencilOpState()
+				.setFailOp(vk::StencilOp::eKeep)
+				.setPassOp(vk::StencilOp::eKeep)
+				.setDepthFailOp(vk::StencilOp::eKeep)
+				.setCompareOp(vk::CompareOp::eAlways)
+				.setCompareMask(0)
+				.setWriteMask(0)
+				.setReference(0))
+			.setMinDepthBounds(0)
+			.setMaxDepthBounds(0);
+	const vk::PipelineColorBlendStateCreateInfo color_blend_info =
+		vk::PipelineColorBlendStateCreateInfo()
+			.setFlags(vk::PipelineColorBlendStateCreateFlags())
+			.setLogicOpEnable(false)
+			.setLogicOp(vk::LogicOp::eNoOp)
+			.setAttachmentCount(att_state.size())
+			.setPAttachments(att_state.data())
+			.setBlendConstants(std::array<float,4>{1.0f, 1.0f, 1.0f, 1.0f});
+
+	const std::vector<vk::PipelineShaderStageCreateInfo> color_stages{
 		shader_stages[static_cast<int>(SHADER_TYPE::VERT)],
 		shader_stages[static_cast<int>(SHADER_TYPE::COLOR_FRAG)]
 	};
@@ -117,79 +193,45 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 			.setFlags(vk::PipelineCreateFlags())
 			.setStageCount(color_stages.size())
 			.setPStages(color_stages.data())
-			.setPVertexInputState(&vk::PipelineVertexInputStateCreateInfo()
-				.setFlags(vk::PipelineVertexInputStateCreateFlags())
-				.setVertexBindingDescriptionCount(1)
-				.setPVertexBindingDescriptions(&this->vi_binding)
-				.setVertexAttributeDescriptionCount(this->vi_attribs.size())
-				.setPVertexAttributeDescriptions(this->vi_attribs.data()))
-			.setPInputAssemblyState(&vk::PipelineInputAssemblyStateCreateInfo()
-				.setFlags(vk::PipelineInputAssemblyStateCreateFlags())
-				.setTopology(vk::PrimitiveTopology::eTriangleList)
-				.setPrimitiveRestartEnable(false))
+			.setPVertexInputState(&vertex_info)
+			.setPInputAssemblyState(&assembly_info)
 			.setPTessellationState(nullptr)
-			.setPViewportState(&vk::PipelineViewportStateCreateInfo()
-				.setFlags(vk::PipelineViewportStateCreateFlags())
-				.setViewportCount(1)
-				.setPViewports(nullptr)
-				.setScissorCount(1)
-				.setPScissors(nullptr))
-			.setPRasterizationState(&vk::PipelineRasterizationStateCreateInfo()
-				.setFlags(vk::PipelineRasterizationStateCreateFlags())
-				.setDepthClampEnable(true)
-				.setRasterizerDiscardEnable(false)
-				.setPolygonMode(vk::PolygonMode::eFill)
-				.setCullMode(vk::CullModeFlagBits::eBack)
-				.setFrontFace(vk::FrontFace::eClockwise)
-				.setDepthBiasEnable(false)
-				.setDepthBiasConstantFactor(0)
-				.setDepthBiasClamp(0)
-				.setDepthBiasSlopeFactor(0)
-				.setLineWidth(0))
-			.setPMultisampleState(&vk::PipelineMultisampleStateCreateInfo()
-				.setFlags(vk::PipelineMultisampleStateCreateFlags())
-				.setRasterizationSamples(vk::SampleCountFlagBits::e1)
-				.setSampleShadingEnable(false)
-				.setMinSampleShading(0.0)
-				.setPSampleMask(nullptr)
-				.setAlphaToCoverageEnable(false)
-				.setAlphaToOneEnable(false))
-			.setPDepthStencilState(&vk::PipelineDepthStencilStateCreateInfo()
-				.setFlags(vk::PipelineDepthStencilStateCreateFlags())
-				.setDepthTestEnable(true)
-				.setDepthWriteEnable(true)
-				.setDepthCompareOp(vk::CompareOp::eLessOrEqual)
-				.setDepthBoundsTestEnable(false)
-				.setStencilTestEnable(false)
-				.setFront(vk::StencilOpState()
-					.setFailOp(vk::StencilOp::eKeep)
-					.setPassOp(vk::StencilOp::eKeep)
-					.setDepthFailOp(vk::StencilOp::eKeep)
-					.setCompareOp(vk::CompareOp::eAlways)
-					.setCompareMask(0)
-					.setWriteMask(0)
-					.setReference(0))
-				.setBack(vk::StencilOpState()
-					.setFailOp(vk::StencilOp::eKeep)
-					.setPassOp(vk::StencilOp::eKeep)
-					.setDepthFailOp(vk::StencilOp::eKeep)
-					.setCompareOp(vk::CompareOp::eAlways)
-					.setCompareMask(0)
-					.setWriteMask(0)
-					.setReference(0))
-				.setMinDepthBounds(0)
-				.setMaxDepthBounds(0))
-			.setPColorBlendState(&vk::PipelineColorBlendStateCreateInfo()
-				.setFlags(vk::PipelineColorBlendStateCreateFlags())
-				.setLogicOpEnable(false)
-				.setLogicOp(vk::LogicOp::eNoOp)
-				.setAttachmentCount(att_state.size())
-				.setPAttachments(att_state.data())
-				.setBlendConstants(std::array<float,4>{1.0f, 1.0f, 1.0f, 1.0f}))
+			.setPViewportState(&view_info)
+			.setPRasterizationState(&rasterization_info)
+			.setPMultisampleState(&multisample_info)
+			.setPDepthStencilState(&depth_stencil_info)
+			.setPColorBlendState(&color_blend_info)
 			.setPDynamicState(&dynamic_state)
 			.setLayout(this->pipeline_layout)
 			.setRenderPass(this->render_pass)
 			.setSubpass(0)
+			.setBasePipelineHandle(vk::Pipeline())
+			.setBasePipelineIndex(0)
+	);
+
+	const std::vector<vk::PipelineShaderStageCreateInfo> texture_stages{
+		shader_stages[static_cast<int>(SHADER_TYPE::VERT)],
+		shader_stages[static_cast<int>(SHADER_TYPE::TEXTURE_FRAG)]
+	};
+
+	this->pipeline[static_cast<int>(PIPELINE_TYPE::TEXTURE)] = device.createGraphicsPipeline(
+		this->pipeline_cache,
+		vk::GraphicsPipelineCreateInfo()
+			.setFlags(vk::PipelineCreateFlags())
+			.setStageCount(texture_stages.size())
+			.setPStages(texture_stages.data())
+			.setPVertexInputState(&vertex_info)
+			.setPInputAssemblyState(&assembly_info)
+			.setPTessellationState(nullptr)
+			.setPViewportState(&view_info)
+			.setPRasterizationState(&rasterization_info)
+			.setPMultisampleState(&multisample_info)
+			.setPDepthStencilState(&depth_stencil_info)
+			.setPColorBlendState(&color_blend_info)
+			.setPDynamicState(&dynamic_state)
+			.setLayout(this->pipeline_layout)
+			.setRenderPass(this->render_pass)
+			.setSubpass(1)
 			.setBasePipelineHandle(vk::Pipeline())
 			.setBasePipelineIndex(0)
 	);
@@ -205,79 +247,18 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 			.setFlags(vk::PipelineCreateFlags())
 			.setStageCount(tranc_stages.size())
 			.setPStages(tranc_stages.data())
-			.setPVertexInputState(&vk::PipelineVertexInputStateCreateInfo()
-				.setFlags(vk::PipelineVertexInputStateCreateFlags())
-				.setVertexBindingDescriptionCount(1)
-				.setPVertexBindingDescriptions(&this->vi_binding)
-				.setVertexAttributeDescriptionCount(this->vi_attribs.size())
-				.setPVertexAttributeDescriptions(this->vi_attribs.data()))
-			.setPInputAssemblyState(&vk::PipelineInputAssemblyStateCreateInfo()
-				.setFlags(vk::PipelineInputAssemblyStateCreateFlags())
-				.setTopology(vk::PrimitiveTopology::eTriangleList)
-				.setPrimitiveRestartEnable(false))
+			.setPVertexInputState(&vertex_info)
+			.setPInputAssemblyState(&assembly_info)
 			.setPTessellationState(nullptr)
-			.setPViewportState(&vk::PipelineViewportStateCreateInfo()
-				.setFlags(vk::PipelineViewportStateCreateFlags())
-				.setViewportCount(1)
-				.setPViewports(nullptr)
-				.setScissorCount(1)
-				.setPScissors(nullptr))
-			.setPRasterizationState(&vk::PipelineRasterizationStateCreateInfo()
-				.setFlags(vk::PipelineRasterizationStateCreateFlags())
-				.setDepthClampEnable(false)
-				.setRasterizerDiscardEnable(false)
-				.setPolygonMode(vk::PolygonMode::eFill)
-				.setCullMode(vk::CullModeFlagBits::eBack)
-				.setFrontFace(vk::FrontFace::eClockwise)
-				.setDepthBiasEnable(true)
-				.setDepthBiasConstantFactor(0)
-				.setDepthBiasClamp(0)
-				.setDepthBiasSlopeFactor(0)
-				.setLineWidth(0))
-			.setPMultisampleState(&vk::PipelineMultisampleStateCreateInfo()
-				.setFlags(vk::PipelineMultisampleStateCreateFlags())
-				.setRasterizationSamples(vk::SampleCountFlagBits::e1)
-				.setSampleShadingEnable(false)
-				.setMinSampleShading(0.0)
-				.setPSampleMask(nullptr)
-				.setAlphaToCoverageEnable(false)
-				.setAlphaToOneEnable(false))
-			.setPDepthStencilState(&vk::PipelineDepthStencilStateCreateInfo()
-				.setFlags(vk::PipelineDepthStencilStateCreateFlags())
-				.setDepthTestEnable(true)
-				.setDepthWriteEnable(false)
-				.setDepthCompareOp(vk::CompareOp::eLessOrEqual)
-				.setDepthBoundsTestEnable(false)
-				.setStencilTestEnable(false)
-				.setFront(vk::StencilOpState()
-					.setFailOp(vk::StencilOp::eKeep)
-					.setPassOp(vk::StencilOp::eKeep)
-					.setDepthFailOp(vk::StencilOp::eKeep)
-					.setCompareOp(vk::CompareOp::eAlways)
-					.setCompareMask(0)
-					.setWriteMask(0)
-					.setReference(0))
-				.setBack(vk::StencilOpState()
-					.setFailOp(vk::StencilOp::eKeep)
-					.setPassOp(vk::StencilOp::eKeep)
-					.setDepthFailOp(vk::StencilOp::eKeep)
-					.setCompareOp(vk::CompareOp::eAlways)
-					.setCompareMask(0)
-					.setWriteMask(0)
-					.setReference(0))
-				.setMinDepthBounds(0)
-				.setMaxDepthBounds(0))
-			.setPColorBlendState(&vk::PipelineColorBlendStateCreateInfo()
-				.setFlags(vk::PipelineColorBlendStateCreateFlags())
-				.setLogicOpEnable(false)
-				.setLogicOp(vk::LogicOp::eNoOp)
-				.setAttachmentCount(att_state.size())
-				.setPAttachments(att_state.data())
-				.setBlendConstants(std::array<float,4>{1.0f, 1.0f, 1.0f, 1.0f}))
+			.setPViewportState(&view_info)
+			.setPRasterizationState(&rasterization_info)
+			.setPMultisampleState(&multisample_info)
+			.setPDepthStencilState(&depth_stencil_info)
+			.setPColorBlendState(&color_blend_info)
 			.setPDynamicState(&dynamic_state)
 			.setLayout(this->pipeline_layout)
 			.setRenderPass(this->render_pass)
-			.setSubpass(1)
+			.setSubpass(2)
 			.setBasePipelineHandle(vk::Pipeline())
 			.setBasePipelineIndex(0)
 	);
@@ -313,10 +294,6 @@ void indeced_mash_vk::cmd_draw(vk::Device device, const pipeline_t *pipeline_ptr
 	}
 }
 
-void pipeline_t::update_texture(const vk::CommandBuffer &cmd_buffer, int value) const{
-	cmd_buffer.fillBuffer(this->texture_index_buffer.buf, 0, sizeof(int), (uint32_t)value);
-}
-
 void pipeline_t::cmd_fill_render_pass(vk::Device device,
 	const vk::CommandBuffer &cmd_buffer, const vk::Framebuffer &frame,
 	vk::Rect2D area) const{
@@ -334,9 +311,6 @@ void pipeline_t::cmd_fill_render_pass(vk::Device device,
 			.setPClearValues(clear_values.data()),
 		vk::SubpassContents::eInline
 	);
-
-	cmd_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
-		this->pipeline[static_cast<int>(PIPELINE_TYPE::COLOR)]);
 
 	std::vector<vk::DescriptorSet> desc_sets(this->vertex_descriptor.sets); //to del
 	desc_sets.insert(desc_sets.cend(),
@@ -360,23 +334,25 @@ void pipeline_t::cmd_fill_render_pass(vk::Device device,
 			.setExtent(vk::Extent2D(area.extent.width, area.extent.height))
 	});
 
-	this->update_texture(cmd_buffer, -1);
+	cmd_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+		this->pipeline[static_cast<int>(PIPELINE_TYPE::COLOR)]);
+
 	this->scene_buffer.cmd_no_tex_draw(device, this, cmd_buffer,
 		this->pipeline_layout, desc_sets);
 
-	this->update_texture(cmd_buffer, 1);
+	cmd_buffer.nextSubpass(vk::SubpassContents::eInline);
+
+	cmd_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+		this->pipeline[static_cast<int>(PIPELINE_TYPE::TEXTURE)]);
+
 	this->scene_buffer.cmd_tex_draw(device, this, cmd_buffer,
 		this->pipeline_layout, desc_sets);
-
-//	this->scene_buffer.cmd_draw_old(device, this, cmd_buffer,
-//		this->pipeline_layout, desc_sets);
 
 	cmd_buffer.nextSubpass(vk::SubpassContents::eInline);
 
 	cmd_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
 		this->pipeline[static_cast<int>(PIPELINE_TYPE::TRANSPARENCY)]);
 
-	this->update_texture(cmd_buffer, -1);
 	this->scene_buffer.cmd_trans_draw(device, this, cmd_buffer,
 		this->pipeline_layout, desc_sets);
 
@@ -761,33 +737,10 @@ void pipeline_t::init_depth_buffer(const vk::Device &device,
 		vk::ImageAspectFlagBits::eDepth);
 
 	this->depth.info = vk::DescriptorImageInfo()
-		.setSampler(vk::Sampler()/*device.createSampler(vk::SamplerCreateInfo()
-			.setFlags(vk::SamplerCreateFlags())
-			.setMagFilter(vk::Filter::eLinear)
-			.setMinFilter(vk::Filter::eLinear)
-			.setMipmapMode(vk::SamplerMipmapMode::eLinear)
-
-			.setAddressModeU(vk::SamplerAddressMode::eRepeat)
-			.setAddressModeV(vk::SamplerAddressMode::eRepeat)
-			.setAddressModeW(vk::SamplerAddressMode::eRepeat)
-
-			.setMipLodBias(1)
-
-			.setAnisotropyEnable(true)
-			.setMaxAnisotropy(2)
-
-			.setCompareEnable(true)
-			.setCompareOp(vk::CompareOp::eLess)
-
-			.setMinLod(1)
-			.setMaxLod(1)
-
-			.setBorderColor(vk::BorderColor::eFloatTransparentBlack)
-			.setUnnormalizedCoordinates(false))*/)
+		.setSampler(vk::Sampler())
 
 		.setImageView(this->depth.view)
-		.setImageLayout(vk::ImageLayout::/*eShaderReadOnlyOptimal*/
-			eDepthStencilAttachmentOptimal);
+		.setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 }
 
 namespace{
@@ -865,8 +818,6 @@ buffer_t create_buffer_f(const vk::Device &device,
 void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 	const vk::PhysicalDevice &physical_device){
 	this->mvp_buffer = create_buffer_f(device, physical_device, get_mvp_buffer_size());
-	this->texture_index_buffer = create_buffer_f(device, physical_device, sizeof(int),
-	vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst);
 
 	this->vertex_descriptor = descriptor_t(
 		device,
@@ -888,17 +839,6 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 	this->fragment_descriptor = descriptor_t(
 		device,
 		std::vector<layout_f>{
-			{
-				vk::DescriptorSetLayoutBinding()
-					.setBinding(2)
-					.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-					.setDescriptorCount(1)
-					.setStageFlags(vk::ShaderStageFlagBits::eFragment)
-					.setPImmutableSamplers(nullptr),
-				nullptr,
-				&this->texture_index_buffer.info,
-				nullptr
-			},
 			{
 				vk::DescriptorSetLayoutBinding()
 					.setBinding(3)
@@ -977,7 +917,10 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 		"./shaders/vert_shader.spv", vk::ShaderStageFlagBits::eVertex);
 
 	this->shader_stages[static_cast<int>(SHADER_TYPE::COLOR_FRAG)] = load_shader_f(device,
-		"./shaders/frag_shader.spv", vk::ShaderStageFlagBits::eFragment);
+		"./shaders/frag_color_shader.spv", vk::ShaderStageFlagBits::eFragment);
+
+	this->shader_stages[static_cast<int>(SHADER_TYPE::TEXTURE_FRAG)] = load_shader_f(device,
+		"./shaders/frag_texture_shader.spv", vk::ShaderStageFlagBits::eFragment);
 
 	this->shader_stages[static_cast<int>(SHADER_TYPE::TRANC_FRAG)] = load_shader_f(device,
 		"./shaders/frag_shader_tranc.spv", vk::ShaderStageFlagBits::eFragment);
@@ -1035,12 +978,20 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 			.setLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
 	};
 
-	enum class SUBPASS{
-		COLOR = 0,
-		TRANSPARENCY = 1
-	};
+	using SUBPASS = PIPELINE_TYPE;
 	const std::array<vk::SubpassDescription, static_cast<int>(PIPELINE_TYPE::SIZE)>
 		subpass {
+			vk::SubpassDescription()
+				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+				.setInputAttachmentCount(0)
+				.setPInputAttachments(nullptr)
+				.setColorAttachmentCount(color_reference.size())
+				.setPColorAttachments(color_reference.data())
+				.setPResolveAttachments(nullptr)
+				.setPDepthStencilAttachment(&depth_reference)
+				.setPreserveAttachmentCount(0)
+				.setPPreserveAttachments(nullptr),
+
 			vk::SubpassDescription()
 				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
 				.setInputAttachmentCount(0)
@@ -1064,9 +1015,18 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 				.setPPreserveAttachments(nullptr),
 	};
 
-	const std::array<vk::SubpassDependency, 1> dependencies{
+	const std::array<vk::SubpassDependency, 2> dependencies{
 		vk::SubpassDependency()
 			.setSrcSubpass(static_cast<uint32_t>(SUBPASS::COLOR))
+			.setDstSubpass(static_cast<uint32_t>(SUBPASS::TEXTURE))
+			.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+			.setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+			.setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+			.setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+			.setDependencyFlags(vk::DependencyFlagBits::eByRegion),
+
+		vk::SubpassDependency()
+			.setSrcSubpass(static_cast<uint32_t>(SUBPASS::TEXTURE))
 			.setDstSubpass(static_cast<uint32_t>(SUBPASS::TRANSPARENCY))
 			.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
 			.setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)

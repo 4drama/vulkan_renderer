@@ -91,9 +91,6 @@ public:
 		vk::Extent2D window_size,
 		const vk::Format &format);
 
-//	void update_texture(vk::Device device, const vk::DescriptorImageInfo* pImageInfo) const;
-//	void update_texture(vk::Device device, int index) const;
-	void update_texture(const vk::CommandBuffer &cmd_buffer, int value) const;
 private:
 	static constexpr vk::SampleCountFlagBits num_samples
 		= vk::SampleCountFlagBits::e1;
@@ -111,8 +108,9 @@ private:
 	enum class SHADER_TYPE{
 		VERT = 0,
 		COLOR_FRAG = 1,
-		TRANC_FRAG = 2,
-		SIZE = 3
+		TEXTURE_FRAG = 2,
+		TRANC_FRAG = 3,
+		SIZE = 4
 	};
 	std::array<vk::PipelineShaderStageCreateInfo, static_cast<int>(SHADER_TYPE::SIZE)>
 		shader_stages;
@@ -136,8 +134,9 @@ private:
 
 	enum class PIPELINE_TYPE{
 		COLOR = 0,
-		TRANSPARENCY = 1,
-		SIZE = 2
+		TEXTURE = 1,
+		TRANSPARENCY = 2,
+		SIZE = 3
 	};
 	vk::Pipeline pipeline[static_cast<int>(PIPELINE_TYPE::SIZE)];
 
@@ -148,7 +147,6 @@ private:
 	std::array<vk::VertexInputAttributeDescription, 4> vi_attribs;
 
 	buffer_t mvp_buffer;
-	buffer_t texture_index_buffer;
 
 	std::vector<vk::DescriptorPoolSize> add_descriptor_set_layout(
 		const vk::Device &device, const std::vector<layout_f> &layouts);
