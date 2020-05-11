@@ -95,15 +95,21 @@ private:
 	static constexpr vk::SampleCountFlagBits num_samples
 		= vk::SampleCountFlagBits::e1;
 
-	struct {
+	struct attachment_image{
 		vk::Format format;
 
 		vk::Image image;
 		vk::DeviceMemory mem;
-		vk::ImageView view;
+	//	vk::ImageView view;
 
 		vk::DescriptorImageInfo info;
-	} depth;
+	};
+
+	attachment_image depth;
+	attachment_image inside_color;
+
+	void init_inside_color_buffer(const vk::Device &device, const vk::Format &format,
+		const vk::PhysicalDevice &physical_device, vk::Extent2D window_size);
 
 	enum class SHADER_TYPE{
 		VERT = 0,

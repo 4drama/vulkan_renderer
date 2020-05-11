@@ -6,6 +6,7 @@ layout( location = 10 ) in vec3 vert_normal;
 layout( location = 11 ) in vec3 in_pos;
 
 layout( location = 0 ) out vec4 frag_color;
+layout( location = 1 ) out vec4 inside_frag_color;
 
 void main() {
 	float lod_bias = 0;
@@ -16,5 +17,7 @@ void main() {
 	vec3 light_normal = normalize(in_pos - light);
 	float shade = dot(vert_normal, light_normal);
 
-	frag_color = (color * max(shade * intensity, 0.1)).bgra;
+	vec4 result_color = (color * max(shade * intensity, 0.1)).bgra;
+	frag_color = result_color;
+	inside_frag_color = result_color;
 }

@@ -297,10 +297,12 @@ void indeced_mash_vk::cmd_draw(vk::Device device, const pipeline_t *pipeline_ptr
 void pipeline_t::cmd_fill_render_pass(vk::Device device,
 	const vk::CommandBuffer &cmd_buffer, const vk::Framebuffer &frame,
 	vk::Rect2D area) const{
-	std::array<vk::ClearValue, 2> clear_values{
+	std::array<vk::ClearValue, 3> clear_values{
 		vk::ClearValue().setColor(
 			vk::ClearColorValue(std::array<float,4>{0.2f, 0.2f, 0.2f, 0.2f})),
-		vk::ClearValue().setDepthStencil(vk::ClearDepthStencilValue(1.0f, 0))
+		vk::ClearValue().setDepthStencil(vk::ClearDepthStencilValue(1.0f, 0)),
+		vk::ClearValue().setColor(
+			vk::ClearColorValue(std::array<float,4>{0.2f, 0.2f, 0.2f, 0.2f}))
 	};
 	cmd_buffer.beginRenderPass(
 		vk::RenderPassBeginInfo()
@@ -733,14 +735,39 @@ void pipeline_t::init_depth_buffer(const vk::Device &device,
 
 	device.bindImageMemory(this->depth.image, this->depth.mem, 0);
 
-	this->depth.view = create_2d_image_view(device, this->depth.image, format,
-		vk::ImageAspectFlagBits::eDepth);
+/*	this->depth.view = create_2d_image_view(device, this->depth.image, format,
+		vk::ImageAspectFlagBits::eDepth);*/
 
 	this->depth.info = vk::DescriptorImageInfo()
 		.setSampler(vk::Sampler())
 
-		.setImageView(this->depth.view)
+		.setImageView(create_2d_image_view(device, this->depth.image, format,
+				vk::ImageAspectFlagBits::eDepth))
 		.setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+}
+
+void pipeline_t::init_inside_color_buffer(const vk::Device &device, const vk::Format &format,
+	const vk::PhysicalDevice &physical_device, vk::Extent2D window_size){
+
+	const vk::FormatProperties format_properties =
+		physical_device.getFormatProperties(format);
+	const vk::PhysicalDeviceMemoryProperties memory_properties =
+		physical_device.getMemoryProperties();
+
+	auto image = create_image(device, format,
+		format_properties, false,
+		vk::Extent3D(window_size.width, window_size.height, 1), 1, 1,
+		vk::SampleCountFlagBits::e1,
+		vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment,
+		vk::ImageLayout::eUndefined,
+		vk::ImageAspectFlagBits::eColor, false, memory_properties,
+		vk::MemoryPropertyFlagBits::eDeviceLocal);;
+
+	this->inside_color.format = format;
+
+	this->inside_color.image = image.img;
+	this->inside_color.mem = image.mem;
+	this->inside_color.info = image.info;
 }
 
 namespace{
@@ -934,10 +961,11 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &format){
 	enum class ATTACHMENT{
 		COLOR = 0,
-		DEPTH = 1
+		DEPTH = 1,
+		INSIDE_COLOR = 2
 	};
 
-	const std::array<vk::AttachmentDescription, 2> attachments {
+	const std::array<vk::AttachmentDescription, 3> attachments {
 		vk::AttachmentDescription()
 			.setFormat(format)
 			.setSamples(pipeline_t::num_samples)
@@ -957,11 +985,30 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 			.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
 			.setInitialLayout(vk::ImageLayout::eUndefined)
 			.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal),
+
+		vk::AttachmentDescription()
+			.setFormat(this->inside_color.format)
+			.setSamples(pipeline_t::num_samples)
+			.setLoadOp(vk::AttachmentLoadOp::eClear)
+			.setStoreOp(vk::AttachmentStoreOp::eStore)
+			.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+			.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+			.setInitialLayout(vk::ImageLayout::eUndefined)
+			.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal),
 	};
 
 	vk::AttachmentReference depth_reference = vk::AttachmentReference()
 		.setAttachment(static_cast<int>(ATTACHMENT::DEPTH))
 		.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+	const std::array<vk::AttachmentReference, 2> inside_and_color_reference{
+		vk::AttachmentReference()
+			.setAttachment(static_cast<int>(ATTACHMENT::COLOR))
+			.setLayout(vk::ImageLayout::eColorAttachmentOptimal),
+		vk::AttachmentReference()
+			.setAttachment(static_cast<int>(ATTACHMENT::INSIDE_COLOR))
+			.setLayout(vk::ImageLayout::eColorAttachmentOptimal)
+	};
 
 	const std::array<vk::AttachmentReference, 1> color_reference{
 		vk::AttachmentReference()
@@ -985,8 +1032,8 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
 				.setInputAttachmentCount(0)
 				.setPInputAttachments(nullptr)
-				.setColorAttachmentCount(color_reference.size())
-				.setPColorAttachments(color_reference.data())
+				.setColorAttachmentCount(inside_and_color_reference.size())
+				.setPColorAttachments(inside_and_color_reference.data())
 				.setPResolveAttachments(nullptr)
 				.setPDepthStencilAttachment(&depth_reference)
 				.setPreserveAttachmentCount(0)
@@ -1051,10 +1098,13 @@ std::vector<vk::Framebuffer> pipeline_t::create_framebuffers(const vk::Device &d
 	const std::vector<swapchain_buffers_type> &buffers, vk::Extent2D window_size,
 	const vk::Format &format){
 
+	this->init_inside_color_buffer(device, format, physical_device, window_size);
 	this->init_depth_buffer(device, physical_device, window_size);
 	this->init_render_pass(device, format);
 
-	std::array<vk::ImageView, 2> attachments{vk::ImageView{}, this->depth.view};
+	std::array<vk::ImageView, 3> attachments{vk::ImageView{},
+		this->depth.info.imageView,
+		this->inside_color.info.imageView};
 
 	vk::FramebufferCreateInfo framebuffer_info = vk::FramebufferCreateInfo()
 		.setRenderPass(this->render_pass)
