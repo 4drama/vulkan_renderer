@@ -103,6 +103,15 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 			.setSrcAlphaBlendFactor(vk::BlendFactor::eZero)
 			.setDstAlphaBlendFactor(vk::BlendFactor::eZero)
 			.setAlphaBlendOp(vk::BlendOp::eAdd)
+			.setColorWriteMask(cc::eR | cc::eG | cc::eB | cc::eA),
+		vk::PipelineColorBlendAttachmentState()
+			.setBlendEnable(false)
+			.setSrcColorBlendFactor(vk::BlendFactor::eZero)
+			.setDstColorBlendFactor(vk::BlendFactor::eZero)
+			.setColorBlendOp(vk::BlendOp::eAdd)
+			.setSrcAlphaBlendFactor(vk::BlendFactor::eZero)
+			.setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+			.setAlphaBlendOp(vk::BlendOp::eAdd)
 			.setColorWriteMask(cc::eR | cc::eG | cc::eB | cc::eA)
 	};
 
@@ -239,6 +248,18 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 	const std::array<vk::PipelineShaderStageCreateInfo, 2> tranc_stages{
 		shader_stages[static_cast<int>(SHADER_TYPE::VERT)],
 		shader_stages[static_cast<int>(SHADER_TYPE::TRANC_FRAG)]
+	};
+
+	att_state = {
+		vk::PipelineColorBlendAttachmentState()
+			.setBlendEnable(true)
+			.setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
+			.setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
+			.setColorBlendOp(vk::BlendOp::eAdd)
+			.setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+			.setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+			.setAlphaBlendOp(vk::BlendOp::eAdd)
+			.setColorWriteMask(cc::eR | cc::eG | cc::eB | cc::eA)
 	};
 
 	this->pipeline[static_cast<int>(PIPELINE_TYPE::TRANSPARENCY)] = device.createGraphicsPipeline(
