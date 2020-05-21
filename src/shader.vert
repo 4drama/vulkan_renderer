@@ -23,6 +23,6 @@ void main(){
 	out_normal = vec4(mv * vec4(app_normal, 0)).xyz;
 	out_pos = vec4(mv * vec4(app_position, 1)).xyz;
 
-	out_uv = in_uv;
-	out_color = in_color;
+	out_uv = in_uv * -1;
+	out_color = in_color + 0.075;
 }

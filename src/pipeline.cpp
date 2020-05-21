@@ -910,7 +910,13 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 			.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
 			.setDescriptorCount(1)
 			.setStageFlags(vk::ShaderStageFlagBits::eFragment)
-			.setPImmutableSamplers(nullptr)
+			.setPImmutableSamplers(nullptr)/*,
+		vk::DescriptorSetLayoutBinding()
+			.setBinding(1)
+			.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+			.setDescriptorCount(1)
+			.setStageFlags(vk::ShaderStageFlagBits::eFragment)
+			.setPImmutableSamplers(nullptr)*/
 	};
 
 	this->texture_layout = device.createDescriptorSetLayout(
@@ -926,7 +932,8 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 	}
 
 	auto texture_size = pool_size_t();
-	texture_size.add(texture_layout_binding[0].descriptorType, textures_counter);
+	for(auto &binding : texture_layout_binding)
+		texture_size.add(binding.descriptorType, textures_counter);
 
 	this->desc_pool = create_descriptor_pool(device, vert_size + frag_size + texture_size);
 
@@ -946,7 +953,8 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 					.setDstBinding(texture_layout_binding[0].binding)
 					.setDescriptorCount(texture_layout_binding[0].descriptorCount)
 					.setDescriptorType(texture_layout_binding[0].descriptorType)
-					.setPImageInfo(&this->scene_buffer.textures[material.diffuse_texname].info));
+					.setPImageInfo(&this->scene_buffer.textures
+						[material.diffuse_texname].info));
 		}
 	}
 

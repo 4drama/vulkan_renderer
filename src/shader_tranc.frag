@@ -9,18 +9,15 @@ layout (input_attachment_index = 1, set = 1, binding = 3) uniform subpassInput i
 	int texture_index;
 };
 
-layout( location = 2 ) in vec2 in_uv;
+layout( location = 2 ) in vec2 in_uv;*/
 layout( location = 3 ) in vec3 in_color;
 
-layout( location = 10 ) in vec3 vert_normal;
+/*layout( location = 10 ) in vec3 vert_normal;
 layout( location = 11 ) in vec3 in_pos;*/
 
 layout( location = 0 ) out vec4 frag_color;
 
 void main() {
-	float depth = subpassLoad(inputDepth).r;
-	if(depth != 0)
-		frag_color = vec4(depth, depth, depth, 0.1);
-	else
-		frag_color = vec4(255, 0, 0, 255);
+//	float depth = subpassLoad(inputDepth).r;
+	frag_color = vec4(1, 1, 1, 0.05);
 }

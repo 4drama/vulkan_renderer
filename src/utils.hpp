@@ -43,7 +43,7 @@ struct vertex{
 	float pos_x, pos_y, pos_z;
 	float norm_x = 0, norm_y = 0, norm_z = 0;
 	float u = 0, v = 0;
-	float r = 1, g = 1, b = 1;
+	float r = 0, g = 0, b = 0;
 };
 
 struct polygon{
