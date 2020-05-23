@@ -303,10 +303,12 @@ void indeced_mash_vk::cmd_draw(vk::Device device, const pipeline_t *pipeline_ptr
 	for(auto &m_range : ranges){
 		std::vector<vk::DescriptorSet> upd_desc_set = desc_sets;
 		const material_t& material = materials[m_range.id];
-		if(!material.diffuse_texname.empty()){
-			upd_desc_set.emplace_back(material.desc);
-		} else
-			upd_desc_set.emplace_back(materials[0].desc);
+/*		if(!material.diffuse_texname.empty()){
+			upd_desc_set.emplace_back(material.texture_desc);
+		} else {
+			upd_desc_set.emplace_back(materials[0].texture_desc);
+		}*/
+		upd_desc_set.emplace_back(material.material_desc);
 
 		cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
 			pipeline_layout, 0, upd_desc_set, std::vector<uint32_t>());
@@ -684,6 +686,61 @@ std::map<std::string, image_t> load_textures_f(vk::PhysicalDevice physical_devic
 	return device_local_textures;
 }
 
+void load_transparencies_f(vk::PhysicalDevice physical_device, vk::Device device,
+	vk::CommandBuffer cmd_buf, vk::Queue queue, std::vector<material_t> &materials){
+
+	const vk::PhysicalDeviceMemoryProperties memory_properties =
+		physical_device.getMemoryProperties();
+
+	std::vector<buffer_t> tmp_buffers;
+	cmd_buf.begin(vk::CommandBufferBeginInfo(
+			vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+
+	for(auto &material : materials){
+		constexpr std::size_t data_size = sizeof(float);
+
+		buffer_t buf = create_buffer(device, memory_properties,
+			vk::BufferUsageFlagBits::eTransferSrc,
+			vk::MemoryPropertyFlagBits::eHostVisible |
+			vk::MemoryPropertyFlagBits::eHostCoherent, data_size);
+		tmp_buffers.emplace_back(buf);
+
+		void *data_ptr = device.mapMemory(buf.mem, buf.info.offset,
+			buf.info.range, vk::MemoryMapFlags());
+		memcpy(data_ptr, &material.dissolve, data_size);
+		device.unmapMemory(buf.mem);
+
+		material.transparency_buff = create_buffer(device, memory_properties,
+			vk::BufferUsageFlagBits::eTransferDst |
+			vk::BufferUsageFlagBits::eUniformBuffer,
+			vk::MemoryPropertyFlagBits::eDeviceLocal, data_size);
+
+		cmd_buf.copyBuffer(buf.buf, material.transparency_buff.buf,
+			std::vector<vk::BufferCopy>{
+				{buf.info.offset, buf.info.offset, buf.info.range}
+			});
+	}
+	cmd_buf.end();
+
+	vk::Fence fance = device.createFence(vk::FenceCreateInfo());
+	vk::PipelineStageFlags pipe_stage_flags = vk::PipelineStageFlagBits::eBottomOfPipe;
+	queue.submit(std::array<vk::SubmitInfo, 1>{
+		vk::SubmitInfo()
+			.setWaitSemaphoreCount(0)
+			.setPWaitSemaphores(nullptr)
+			.setPWaitDstStageMask(&pipe_stage_flags)
+			.setCommandBufferCount(1)
+			.setPCommandBuffers(&cmd_buf)
+			.setSignalSemaphoreCount(0)
+			.setPSignalSemaphores(nullptr)
+	}, fance);
+
+	while(device.waitForFences(fance, true, 10000000) != vk::Result::eSuccess);
+	device.destroy(fance);
+	for(auto &buf : tmp_buffers)
+		destroy(device, buf);
+}
+
 }
 
 namespace{
@@ -737,9 +794,10 @@ void pipeline_t::load_scene(const vk::Device &device,
 		mash.path, &mash.materials, format, cmd_buffer, queue);
 
 	this->scene_buffer.materials = mash.materials;
-//	this->scene_buffer.materials_ranges = mash.materials_ranges; //delete
+	load_transparencies_f(physical_device, device, cmd_buffer, queue,
+		this->scene_buffer.materials);
+
 	butch(this->scene_buffer, mash.materials_ranges);
-//	abort();
 }
 
 void pipeline_t::init_depth_buffer(const vk::Device &device,
@@ -910,13 +968,13 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 			.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
 			.setDescriptorCount(1)
 			.setStageFlags(vk::ShaderStageFlagBits::eFragment)
-			.setPImmutableSamplers(nullptr)/*,
+			.setPImmutableSamplers(nullptr),
 		vk::DescriptorSetLayoutBinding()
 			.setBinding(1)
 			.setDescriptorType(vk::DescriptorType::eUniformBuffer)
 			.setDescriptorCount(1)
 			.setStageFlags(vk::ShaderStageFlagBits::eFragment)
-			.setPImmutableSamplers(nullptr)*/
+			.setPImmutableSamplers(nullptr)
 	};
 
 	this->texture_layout = device.createDescriptorSetLayout(
@@ -932,30 +990,38 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 	}
 
 	auto texture_size = pool_size_t();
-	for(auto &binding : texture_layout_binding)
-		texture_size.add(binding.descriptorType, textures_counter);
+	texture_size.add(texture_layout_binding[0].descriptorType, textures_counter);
+	texture_size.add(texture_layout_binding[1].descriptorType,
+		this->scene_buffer.materials.size());
 
 	this->desc_pool = create_descriptor_pool(device, vert_size + frag_size + texture_size);
 
 	std::vector<vk::WriteDescriptorSet> writes{};
 	for(auto &material : this->scene_buffer.materials){
-		if(!material.diffuse_texname.empty()){
-			auto tmp_desc_sets = device.allocateDescriptorSets(
-				vk::DescriptorSetAllocateInfo()
-					.setDescriptorPool(this->desc_pool)
-					.setDescriptorSetCount(1)
-					.setPSetLayouts(&this->texture_layout));
+		auto tmp_desc_sets = device.allocateDescriptorSets(
+			vk::DescriptorSetAllocateInfo()
+				.setDescriptorPool(this->desc_pool)
+				.setDescriptorSetCount(1)
+				.setPSetLayouts(&this->texture_layout));
 
-			material.desc = *tmp_desc_sets.begin();
+		material.material_desc = *tmp_desc_sets.begin();
+		if(!material.diffuse_texname.empty()){
 			writes.emplace_back(
 				vk::WriteDescriptorSet()
-					.setDstSet(material.desc)
+					.setDstSet(material.material_desc)
 					.setDstBinding(texture_layout_binding[0].binding)
 					.setDescriptorCount(texture_layout_binding[0].descriptorCount)
 					.setDescriptorType(texture_layout_binding[0].descriptorType)
 					.setPImageInfo(&this->scene_buffer.textures
 						[material.diffuse_texname].info));
 		}
+		writes.emplace_back(
+			vk::WriteDescriptorSet()
+				.setDstSet(material.material_desc)
+				.setDstBinding(texture_layout_binding[1].binding)
+				.setDescriptorCount(texture_layout_binding[1].descriptorCount)
+				.setDescriptorType(texture_layout_binding[1].descriptorType)
+				.setPBufferInfo(&material.transparency_buff.info));
 	}
 
 	device.updateDescriptorSets(writes, std::vector<vk::CopyDescriptorSet>{});

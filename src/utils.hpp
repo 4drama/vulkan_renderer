@@ -112,7 +112,9 @@ void update_mvp_buffer(const camera &cam,
 struct material_t{
 	std::string diffuse_texname;
 	float dissolve = 1;
-	vk::DescriptorSet desc;
+	buffer_t transparency_buff;
+
+	vk::DescriptorSet material_desc;
 };
 
 struct material_range_t{

@@ -1,6 +1,9 @@
 #version 450
 
 layout( set = 2, binding = 0) uniform sampler2D sampler_color;
+layout( set = 2, binding = 1) uniform material_att{
+	float tranc;
+};
 
 //layout (input_attachment_index = 0, set = 2, binding = 1) uniform subpassInput inputColor;
 layout (input_attachment_index = 1, set = 1, binding = 3) uniform subpassInput inputDepth;
@@ -19,5 +22,5 @@ layout( location = 0 ) out vec4 frag_color;
 
 void main() {
 //	float depth = subpassLoad(inputDepth).r;
-	frag_color = vec4(1, 1, 1, 0.05);
+	frag_color = vec4(1, 1, 1, tranc);
 }
