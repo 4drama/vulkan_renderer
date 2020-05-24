@@ -112,6 +112,24 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 			.setSrcAlphaBlendFactor(vk::BlendFactor::eZero)
 			.setDstAlphaBlendFactor(vk::BlendFactor::eZero)
 			.setAlphaBlendOp(vk::BlendOp::eAdd)
+			.setColorWriteMask(cc::eR | cc::eG | cc::eB | cc::eA),
+		vk::PipelineColorBlendAttachmentState()
+			.setBlendEnable(false)
+			.setSrcColorBlendFactor(vk::BlendFactor::eZero)
+			.setDstColorBlendFactor(vk::BlendFactor::eZero)
+			.setColorBlendOp(vk::BlendOp::eAdd)
+			.setSrcAlphaBlendFactor(vk::BlendFactor::eZero)
+			.setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+			.setAlphaBlendOp(vk::BlendOp::eAdd)
+			.setColorWriteMask(cc::eR | cc::eG | cc::eB | cc::eA),
+		vk::PipelineColorBlendAttachmentState()
+			.setBlendEnable(false)
+			.setSrcColorBlendFactor(vk::BlendFactor::eZero)
+			.setDstColorBlendFactor(vk::BlendFactor::eZero)
+			.setColorBlendOp(vk::BlendOp::eAdd)
+			.setSrcAlphaBlendFactor(vk::BlendFactor::eZero)
+			.setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+			.setAlphaBlendOp(vk::BlendOp::eAdd)
 			.setColorWriteMask(cc::eR | cc::eG | cc::eB | cc::eA)
 	};
 
@@ -320,12 +338,16 @@ void indeced_mash_vk::cmd_draw(vk::Device device, const pipeline_t *pipeline_ptr
 void pipeline_t::cmd_fill_render_pass(vk::Device device,
 	const vk::CommandBuffer &cmd_buffer, const vk::Framebuffer &frame,
 	vk::Rect2D area) const{
-	std::array<vk::ClearValue, 3> clear_values{
+	std::array<vk::ClearValue, 5> clear_values{
 		vk::ClearValue().setColor(
 			vk::ClearColorValue(std::array<float,4>{0.2f, 0.2f, 0.2f, 0.2f})),
 		vk::ClearValue().setDepthStencil(vk::ClearDepthStencilValue(1.0f, 0)),
 		vk::ClearValue().setColor(
-			vk::ClearColorValue(std::array<float,4>{0.2f, 0.2f, 0.2f, 0.2f}))
+			vk::ClearColorValue(std::array<float,4>{0.0f, 0.0f, 0.0f, 0.0f})),
+		vk::ClearValue().setColor(
+			vk::ClearColorValue(std::array<float,4>{0.0f, 0.0f, 0.0f, 0.0f})),
+		vk::ClearValue().setColor(
+			vk::ClearColorValue(std::array<float,4>{0.0f, 0.0f, 0.0f, 0.0f}))
 	};
 	cmd_buffer.beginRenderPass(
 		vk::RenderPassBeginInfo()
@@ -825,8 +847,11 @@ void pipeline_t::init_depth_buffer(const vk::Device &device,
 		.setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 }
 
-void pipeline_t::init_inside_color_buffer(const vk::Device &device, const vk::Format &format,
+pipeline_t::attachment_image pipeline_t::create_attachment_image(
+	const vk::Device &device, const vk::Format &format,
 	const vk::PhysicalDevice &physical_device, vk::Extent2D window_size){
+
+	pipeline_t::attachment_image result_image;
 
 	const vk::FormatProperties format_properties =
 		physical_device.getFormatProperties(format);
@@ -842,11 +867,13 @@ void pipeline_t::init_inside_color_buffer(const vk::Device &device, const vk::Fo
 		vk::ImageAspectFlagBits::eColor, false, memory_properties,
 		vk::MemoryPropertyFlagBits::eDeviceLocal);;
 
-	this->inside_color.format = format;
+	result_image.format = format;
 
-	this->inside_color.image = image.img;
-	this->inside_color.mem = image.mem;
-	this->inside_color.info = image.info;
+	result_image.image = image.img;
+	result_image.mem = image.mem;
+	result_image.info = image.info;
+
+	return result_image;
 }
 
 namespace{
@@ -1055,12 +1082,14 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 
 void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &format){
 	enum class ATTACHMENT{
-		COLOR = 0,
+		SWAP_IMAGE = 0,
 		DEPTH = 1,
-		INSIDE_COLOR = 2
+		POSITION = 2,
+		NORMAL = 3,
+		DEFFUSE = 4,
 	};
 
-	const std::array<vk::AttachmentDescription, 3> attachments {
+	const std::array<vk::AttachmentDescription, 5> attachments {
 		vk::AttachmentDescription()
 			.setFormat(format)
 			.setSamples(pipeline_t::num_samples)
@@ -1082,7 +1111,7 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 			.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal),
 
 		vk::AttachmentDescription()
-			.setFormat(this->inside_color.format)
+			.setFormat(this->g_buffer.position.format)
 			.setSamples(pipeline_t::num_samples)
 			.setLoadOp(vk::AttachmentLoadOp::eClear)
 			.setStoreOp(vk::AttachmentStoreOp::eStore)
@@ -1090,31 +1119,54 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 			.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
 			.setInitialLayout(vk::ImageLayout::eUndefined)
 			.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal),
+
+		vk::AttachmentDescription()
+			.setFormat(this->g_buffer.normal.format)
+			.setSamples(pipeline_t::num_samples)
+			.setLoadOp(vk::AttachmentLoadOp::eClear)
+			.setStoreOp(vk::AttachmentStoreOp::eStore)
+			.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+			.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+			.setInitialLayout(vk::ImageLayout::eUndefined)
+			.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal),
+
+		vk::AttachmentDescription()
+			.setFormat(this->g_buffer.diffuse.format)
+			.setSamples(pipeline_t::num_samples)
+			.setLoadOp(vk::AttachmentLoadOp::eClear)
+			.setStoreOp(vk::AttachmentStoreOp::eStore)
+			.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+			.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+			.setInitialLayout(vk::ImageLayout::eUndefined)
+			.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal)
 	};
 
 	vk::AttachmentReference depth_reference = vk::AttachmentReference()
 		.setAttachment(static_cast<int>(ATTACHMENT::DEPTH))
 		.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-	const std::array<vk::AttachmentReference, 2> inside_and_color_reference{
+	const std::array<vk::AttachmentReference, 4> gbuffer_reference{
 		vk::AttachmentReference()
-			.setAttachment(static_cast<int>(ATTACHMENT::COLOR))
+			.setAttachment(static_cast<int>(ATTACHMENT::SWAP_IMAGE))
 			.setLayout(vk::ImageLayout::eColorAttachmentOptimal),
 		vk::AttachmentReference()
-			.setAttachment(static_cast<int>(ATTACHMENT::INSIDE_COLOR))
+			.setAttachment(static_cast<int>(ATTACHMENT::POSITION))
+			.setLayout(vk::ImageLayout::eColorAttachmentOptimal),
+		vk::AttachmentReference()
+			.setAttachment(static_cast<int>(ATTACHMENT::NORMAL))
+			.setLayout(vk::ImageLayout::eColorAttachmentOptimal),
+		vk::AttachmentReference()
+			.setAttachment(static_cast<int>(ATTACHMENT::DEFFUSE))
 			.setLayout(vk::ImageLayout::eColorAttachmentOptimal)
 	};
 
 	const std::array<vk::AttachmentReference, 1> color_reference{
 		vk::AttachmentReference()
-			.setAttachment(static_cast<int>(ATTACHMENT::COLOR))
+			.setAttachment(static_cast<int>(ATTACHMENT::SWAP_IMAGE))
 			.setLayout(vk::ImageLayout::eColorAttachmentOptimal)
 	};
 
 	const std::array<vk::AttachmentReference, 1> transparency_input{
-	//	vk::AttachmentReference()
-	//		.setAttachment(static_cast<int>(ATTACHMENT::COLOR))
-	//		.setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
 		vk::AttachmentReference()
 			.setAttachment(static_cast<int>(ATTACHMENT::DEPTH))
 			.setLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
@@ -1127,8 +1179,8 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
 				.setInputAttachmentCount(0)
 				.setPInputAttachments(nullptr)
-				.setColorAttachmentCount(inside_and_color_reference.size())
-				.setPColorAttachments(inside_and_color_reference.data())
+				.setColorAttachmentCount(gbuffer_reference.size())
+				.setPColorAttachments(gbuffer_reference.data())
 				.setPResolveAttachments(nullptr)
 				.setPDepthStencilAttachment(&depth_reference)
 				.setPreserveAttachmentCount(0)
@@ -1193,13 +1245,15 @@ std::vector<vk::Framebuffer> pipeline_t::create_framebuffers(const vk::Device &d
 	const std::vector<swapchain_buffers_type> &buffers, vk::Extent2D window_size,
 	const vk::Format &format){
 
-	this->init_inside_color_buffer(device, format, physical_device, window_size);
+	this->init_g_buffer(device, format, physical_device, window_size);
 	this->init_depth_buffer(device, physical_device, window_size);
 	this->init_render_pass(device, format);
 
-	std::array<vk::ImageView, 3> attachments{vk::ImageView{},
+	std::array<vk::ImageView, 5> attachments{vk::ImageView{},
 		this->depth.info.imageView,
-		this->inside_color.info.imageView};
+		this->g_buffer.position.info.imageView,
+		this->g_buffer.normal.info.imageView,
+		this->g_buffer.diffuse.info.imageView};
 
 	vk::FramebufferCreateInfo framebuffer_info = vk::FramebufferCreateInfo()
 		.setRenderPass(this->render_pass)

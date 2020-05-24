@@ -106,10 +106,29 @@ private:
 	};
 
 	attachment_image depth;
-	attachment_image inside_color;
 
-	void init_inside_color_buffer(const vk::Device &device, const vk::Format &format,
+	struct {
+		attachment_image position;
+		attachment_image normal;
+		attachment_image diffuse;
+	} g_buffer;
+	attachment_image create_attachment_image(
+		const vk::Device &device, const vk::Format &format,
 		const vk::PhysicalDevice &physical_device, vk::Extent2D window_size);
+
+	inline void init_g_buffer(
+		const vk::Device &device, const vk::Format &format,
+		const vk::PhysicalDevice &physical_device, vk::Extent2D window_size){
+
+		g_buffer.position = create_attachment_image(
+			device, format, physical_device, window_size);
+
+		g_buffer.normal = create_attachment_image(
+			device, format, physical_device, window_size);
+
+		g_buffer.diffuse = create_attachment_image(
+			device, format, physical_device, window_size);
+	}
 
 	enum class SHADER_TYPE{
 		VERT = 0,
