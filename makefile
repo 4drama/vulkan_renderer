@@ -24,8 +24,10 @@ ALL: cclean
 	gcc -c $(VK_INCLUDE) -std=c++17 ./src/test.cpp -o ./obj/test.o
 
 	glslangValidator -V -o ./shaders/vert_shader.spv ./src/shader.vert
+	glslangValidator -V -o ./shaders/vert_composition_shader.spv ./src/shader_composition.vert
 	glslangValidator -V -o ./shaders/frag_color_shader.spv ./src/shader_color.frag
 	glslangValidator -V -o ./shaders/frag_texture_shader.spv ./src/shader_texture.frag
+	glslangValidator -V -o ./shaders/frag_composition_shader.spv ./src/shader_composition.frag
 	glslangValidator -V -o ./shaders/frag_shader_tranc.spv ./src/shader_tranc.frag
 
 	gcc $(VK_LIB) ./obj/rnd.o ./obj/test.o ./obj/pipeline.o ./obj/utils.o \

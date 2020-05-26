@@ -263,6 +263,34 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 			.setBasePipelineIndex(0)
 	);
 
+	const std::vector<vk::PipelineShaderStageCreateInfo> composition_stages{
+		shader_stages[static_cast<int>(SHADER_TYPE::COMPOSITION_VERT)],
+		shader_stages[static_cast<int>(SHADER_TYPE::COMPOSITION_FRAG)]
+	};
+
+	this->pipeline[static_cast<int>(PIPELINE_TYPE::COMPOSITION)] = device.createGraphicsPipeline(
+		this->pipeline_cache,
+		vk::GraphicsPipelineCreateInfo()
+			.setFlags(vk::PipelineCreateFlags())
+			.setStageCount(composition_stages.size())
+			.setPStages(composition_stages.data())
+			.setPVertexInputState(&vertex_info)
+			.setPInputAssemblyState(&assembly_info)
+			.setPTessellationState(nullptr)
+			.setPViewportState(&view_info)
+			.setPRasterizationState(&rasterization_info)
+			.setPMultisampleState(&multisample_info)
+			.setPDepthStencilState(&depth_stencil_info)
+			.setPColorBlendState(&color_blend_info)
+			.setPDynamicState(&dynamic_state)
+			.setLayout(this->pipeline_layout)
+			.setRenderPass(this->render_pass)
+			.setSubpass(2)
+			.setBasePipelineHandle(vk::Pipeline())
+			.setBasePipelineIndex(0)
+	);
+
+
 	const std::array<vk::PipelineShaderStageCreateInfo, 2> tranc_stages{
 		shader_stages[static_cast<int>(SHADER_TYPE::VERT)],
 		shader_stages[static_cast<int>(SHADER_TYPE::TRANC_FRAG)]
@@ -297,7 +325,7 @@ void pipeline_t::init_pipeline(const vk::Device &device){
 			.setPDynamicState(&dynamic_state)
 			.setLayout(this->pipeline_layout)
 			.setRenderPass(this->render_pass)
-			.setSubpass(2)
+			.setSubpass(3)
 			.setBasePipelineHandle(vk::Pipeline())
 			.setBasePipelineIndex(0)
 	);
@@ -340,14 +368,14 @@ void pipeline_t::cmd_fill_render_pass(vk::Device device,
 	vk::Rect2D area) const{
 	std::array<vk::ClearValue, 5> clear_values{
 		vk::ClearValue().setColor(
-			vk::ClearColorValue(std::array<float,4>{0.2f, 0.2f, 0.2f, 0.2f})),
+			vk::ClearColorValue(std::array<float,4>{0.2f, 0.2f, 0.2f, 1.0f})),
 		vk::ClearValue().setDepthStencil(vk::ClearDepthStencilValue(1.0f, 0)),
 		vk::ClearValue().setColor(
-			vk::ClearColorValue(std::array<float,4>{0.0f, 0.0f, 0.0f, 0.0f})),
+			vk::ClearColorValue(std::array<float,4>{1.0f, 1.0f, 1.0f, 1.0f})),
 		vk::ClearValue().setColor(
-			vk::ClearColorValue(std::array<float,4>{0.0f, 0.0f, 0.0f, 0.0f})),
+			vk::ClearColorValue(std::array<float,4>{0.0f, 0.0f, 0.0f, 1.0f})),
 		vk::ClearValue().setColor(
-			vk::ClearColorValue(std::array<float,4>{0.0f, 0.0f, 0.0f, 0.0f}))
+			vk::ClearColorValue(std::array<float,4>{0.2f, 0.2f, 0.2f, 1.0f}))
 	};
 	cmd_buffer.beginRenderPass(
 		vk::RenderPassBeginInfo()
@@ -394,6 +422,16 @@ void pipeline_t::cmd_fill_render_pass(vk::Device device,
 
 	this->scene_buffer.cmd_tex_draw(device, this, cmd_buffer,
 		this->pipeline_layout, desc_sets);
+
+	cmd_buffer.nextSubpass(vk::SubpassContents::eInline);
+
+	cmd_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+		this->pipeline[static_cast<int>(PIPELINE_TYPE::COMPOSITION)]);
+
+	cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout,
+			0, desc_sets, std::vector<uint32_t>());
+
+	cmd_buffer.draw(3, 1, 0, 0);
 
 	cmd_buffer.nextSubpass(vk::SubpassContents::eInline);
 
@@ -973,6 +1011,39 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 		device,
 		std::vector<layout_f>{
 			{
+					vk::DescriptorSetLayoutBinding()
+						.setBinding(0)
+						.setDescriptorType(vk::DescriptorType::eInputAttachment)
+						.setDescriptorCount(1)
+						.setStageFlags(vk::ShaderStageFlagBits::eFragment)
+						.setPImmutableSamplers(nullptr),
+					&this->g_buffer.position.info,
+					nullptr,
+					nullptr
+				},
+			{
+					vk::DescriptorSetLayoutBinding()
+						.setBinding(1)
+						.setDescriptorType(vk::DescriptorType::eInputAttachment)
+						.setDescriptorCount(1)
+						.setStageFlags(vk::ShaderStageFlagBits::eFragment)
+						.setPImmutableSamplers(nullptr),
+					&this->g_buffer.normal.info,
+					nullptr,
+					nullptr
+				},
+			{
+					vk::DescriptorSetLayoutBinding()
+						.setBinding(2)
+						.setDescriptorType(vk::DescriptorType::eInputAttachment)
+						.setDescriptorCount(1)
+						.setStageFlags(vk::ShaderStageFlagBits::eFragment)
+						.setPImmutableSamplers(nullptr),
+					&this->g_buffer.diffuse.info,
+					nullptr,
+					nullptr
+				}
+		/*	{
 				vk::DescriptorSetLayoutBinding()
 					.setBinding(3)
 					.setDescriptorType(vk::DescriptorType::eInputAttachment)
@@ -982,7 +1053,7 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 				&this->depth.info,
 				nullptr,
 				nullptr
-			}
+			}*/
 		}
 	);
 
@@ -1065,11 +1136,17 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 	this->shader_stages[static_cast<int>(SHADER_TYPE::VERT)] = load_shader_f(device,
 		"./shaders/vert_shader.spv", vk::ShaderStageFlagBits::eVertex);
 
+	this->shader_stages[static_cast<int>(SHADER_TYPE::COMPOSITION_VERT)] = load_shader_f(device,
+		"./shaders/vert_composition_shader.spv", vk::ShaderStageFlagBits::eVertex);
+
 	this->shader_stages[static_cast<int>(SHADER_TYPE::COLOR_FRAG)] = load_shader_f(device,
 		"./shaders/frag_color_shader.spv", vk::ShaderStageFlagBits::eFragment);
 
 	this->shader_stages[static_cast<int>(SHADER_TYPE::TEXTURE_FRAG)] = load_shader_f(device,
 		"./shaders/frag_texture_shader.spv", vk::ShaderStageFlagBits::eFragment);
+
+	this->shader_stages[static_cast<int>(SHADER_TYPE::COMPOSITION_FRAG)] = load_shader_f(device,
+		"./shaders/frag_composition_shader.spv", vk::ShaderStageFlagBits::eFragment);
 
 	this->shader_stages[static_cast<int>(SHADER_TYPE::TRANC_FRAG)] = load_shader_f(device,
 		"./shaders/frag_shader_tranc.spv", vk::ShaderStageFlagBits::eFragment);
@@ -1082,7 +1159,7 @@ void pipeline_t::init_graphic_pipeline(const vk::Device &device,
 
 void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &format){
 	enum class ATTACHMENT{
-		SWAP_IMAGE = 0,
+		COLOR = 0,
 		DEPTH = 1,
 		POSITION = 2,
 		NORMAL = 3,
@@ -1147,7 +1224,7 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 
 	const std::array<vk::AttachmentReference, 4> gbuffer_reference{
 		vk::AttachmentReference()
-			.setAttachment(static_cast<int>(ATTACHMENT::SWAP_IMAGE))
+			.setAttachment(static_cast<int>(ATTACHMENT::COLOR))
 			.setLayout(vk::ImageLayout::eColorAttachmentOptimal),
 		vk::AttachmentReference()
 			.setAttachment(static_cast<int>(ATTACHMENT::POSITION))
@@ -1160,9 +1237,21 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 			.setLayout(vk::ImageLayout::eColorAttachmentOptimal)
 	};
 
+	const std::array<vk::AttachmentReference, 3> gbuffer_input{
+		vk::AttachmentReference()
+			.setAttachment(static_cast<int>(ATTACHMENT::POSITION))
+			.setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+		vk::AttachmentReference()
+			.setAttachment(static_cast<int>(ATTACHMENT::NORMAL))
+			.setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+		vk::AttachmentReference()
+			.setAttachment(static_cast<int>(ATTACHMENT::DEFFUSE))
+			.setLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+	};
+
 	const std::array<vk::AttachmentReference, 1> color_reference{
 		vk::AttachmentReference()
-			.setAttachment(static_cast<int>(ATTACHMENT::SWAP_IMAGE))
+			.setAttachment(static_cast<int>(ATTACHMENT::COLOR))
 			.setLayout(vk::ImageLayout::eColorAttachmentOptimal)
 	};
 
@@ -1190,8 +1279,8 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
 				.setInputAttachmentCount(0)
 				.setPInputAttachments(nullptr)
-				.setColorAttachmentCount(color_reference.size())
-				.setPColorAttachments(color_reference.data())
+				.setColorAttachmentCount(gbuffer_reference.size())
+				.setPColorAttachments(gbuffer_reference.data())
 				.setPResolveAttachments(nullptr)
 				.setPDepthStencilAttachment(&depth_reference)
 				.setPreserveAttachmentCount(0)
@@ -1199,8 +1288,19 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 
 			vk::SubpassDescription()
 				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-				.setInputAttachmentCount(transparency_input.size())
-				.setPInputAttachments(transparency_input.data())
+				.setInputAttachmentCount(gbuffer_input.size())
+				.setPInputAttachments(gbuffer_input.data())
+				.setColorAttachmentCount(color_reference.size())
+				.setPColorAttachments(color_reference.data())
+				.setPResolveAttachments(nullptr)
+				.setPDepthStencilAttachment(/*&depth_reference*/nullptr)
+				.setPreserveAttachmentCount(0)
+				.setPPreserveAttachments(nullptr),
+
+			vk::SubpassDescription()
+				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+				.setInputAttachmentCount(/*transparency_input.size()*/ 0)
+				.setPInputAttachments(/*transparency_input.data()*/ nullptr)
 				.setColorAttachmentCount(color_reference.size())
 				.setPColorAttachments(color_reference.data())
 				.setPResolveAttachments(nullptr)
@@ -1209,7 +1309,7 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 				.setPPreserveAttachments(nullptr),
 	};
 
-	const std::array<vk::SubpassDependency, 2> dependencies{
+	const std::array<vk::SubpassDependency, 3> dependencies{
 		vk::SubpassDependency()
 			.setSrcSubpass(static_cast<uint32_t>(SUBPASS::COLOR))
 			.setDstSubpass(static_cast<uint32_t>(SUBPASS::TEXTURE))
@@ -1221,6 +1321,15 @@ void pipeline_t::init_render_pass(const vk::Device &device, const vk::Format &fo
 
 		vk::SubpassDependency()
 			.setSrcSubpass(static_cast<uint32_t>(SUBPASS::TEXTURE))
+			.setDstSubpass(static_cast<uint32_t>(SUBPASS::COMPOSITION))
+			.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+			.setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+			.setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+			.setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+			.setDependencyFlags(vk::DependencyFlagBits::eByRegion),
+
+		vk::SubpassDependency()
+			.setSrcSubpass(static_cast<uint32_t>(SUBPASS::COMPOSITION))
 			.setDstSubpass(static_cast<uint32_t>(SUBPASS::TRANSPARENCY))
 			.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
 			.setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)

@@ -132,10 +132,12 @@ private:
 
 	enum class SHADER_TYPE{
 		VERT = 0,
-		COLOR_FRAG = 1,
-		TEXTURE_FRAG = 2,
-		TRANC_FRAG = 3,
-		SIZE = 4
+		COMPOSITION_VERT = 1,
+		COLOR_FRAG = 2,
+		TEXTURE_FRAG = 3,
+		COMPOSITION_FRAG = 4,
+		TRANC_FRAG = 5,
+		SIZE = 6
 	};
 	std::array<vk::PipelineShaderStageCreateInfo, static_cast<int>(SHADER_TYPE::SIZE)>
 		shader_stages;
@@ -160,8 +162,9 @@ private:
 	enum class PIPELINE_TYPE{
 		COLOR = 0,
 		TEXTURE = 1,
-		TRANSPARENCY = 2,
-		SIZE = 3
+		COMPOSITION = 2,
+		TRANSPARENCY = 3,
+		SIZE = 4
 	};
 	vk::Pipeline pipeline[static_cast<int>(PIPELINE_TYPE::SIZE)];
 

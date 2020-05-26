@@ -6,7 +6,7 @@ layout( set = 2, binding = 1) uniform material_att{
 };
 
 //layout (input_attachment_index = 0, set = 2, binding = 1) uniform subpassInput inputColor;
-layout (input_attachment_index = 1, set = 1, binding = 3) uniform subpassInput inputDepth;
+//layout (input_attachment_index = 1, set = 1, binding = 3) uniform subpassInput inputDepth;
 
 /*layout( set = 1, binding = 2 ) uniform tex {
 	int texture_index;
