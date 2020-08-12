@@ -27,5 +27,10 @@ void main() {
 	vec3 light_normal = normalize(in_pos - light);
 	float shade = dot(vert_normal, light_normal);
 
-	frag_color = vec4((in_color * max(shade * intensity, 0.1)), tranc);
+	vec3 comara_normal = vec3(0, 0, -1);
+	vec3 reflect = light_normal - (2 * vert_normal) * dot(light_normal, vert_normal);
+	float shininess = 110;
+	vec3 specular = vec3(255, 255, 255) * pow(max(0, dot(comara_normal, reflect)), shininess);
+
+	frag_color = vec4((in_color * max(shade * intensity, 0.1)) + specular, tranc);
 }
