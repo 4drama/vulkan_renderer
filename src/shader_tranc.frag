@@ -27,10 +27,28 @@ void main() {
 	vec3 light_normal = normalize(in_pos - light);
 	float shade = dot(vert_normal, light_normal);
 
-	vec3 comara_normal = vec3(0, 0, -1);
+	vec3 camera_normal = normalize(vec3(0, 0, -1) - in_pos);
 	vec3 reflect = light_normal - (2 * vert_normal) * dot(light_normal, vert_normal);
 	float shininess = 110;
-	vec3 specular = vec3(255, 255, 255) * pow(max(0, dot(comara_normal, reflect)), shininess);
+	
+	vec3 material_specular = vec3(255, 255, 255) * 0.1;
+	vec3 light_specular = vec3(255, 255, 255) * 0.1;
+	
+	vec3 specular = material_specular * light_specular * pow(max(0, dot(camera_normal, reflect)), shininess);
+	
+	vec3 material_ambient = in_color * 0.025;
+	vec3 light_ambient = vec3(255, 255, 255) * 0.025;
+	
+	vec3 ambient_color = material_ambient * light_ambient;
+	float f;
+	if(shade > 0){
+		f = 1;
+	} else {
+		f = 0;
+	}
 
-	frag_color = vec4((in_color * max(shade * intensity, 0.1)) + specular, tranc);
+	vec3 light_deffuse = vec3(255, 255, 255) * 0.0045;
+	vec3 deffuse = in_color;
+	
+	frag_color = vec4(ambient_color + f * (light_deffuse * deffuse * max(shade * intensity, 0) + specular), tranc);
 }
